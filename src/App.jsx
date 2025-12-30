@@ -33,13 +33,13 @@ function AppContent({ theme, toggleTheme, deferredPrompt, handleInstall }) {
           <Link className="navbar-brand fw-bold" to="/" onClick={handleNavClick('/')}>Focus</Link>
 
           <div className="d-flex align-items-center order-lg-last ms-2">
-            {/* <button
+            <button
               className="theme-toggle btn btn-link text-decoration-none me-2"
               onClick={toggleTheme}
               title="Toggle Theme"
             >
               {theme === 'light' ? '🌙' : '☀️'}
-            </button> */}
+            </button>
 
             <button
               className="navbar-toggler ms-2"
