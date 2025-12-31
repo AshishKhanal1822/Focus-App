@@ -45,7 +45,7 @@ function GetStarted() {
                                     <h2 className="display-4 fw-bold mb-4">Ready to Transform Your Workflow?</h2>
                                     <p className="lead opacity-75 mb-5 mx-auto" style={{ maxWidth: '700px' }}>
                                         Join thousands of users who have elevated their productivity with Focus.
-                                        Start your journey today.
+                                        Start your journey today. Start today!
                                     </p>
 
                                     <div className="row g-4 text-start justify-content-center mb-5">
