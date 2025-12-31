@@ -136,6 +136,60 @@ const books = [
             <h3>Sleep Hygiene</h3>
             <p>Keep your bedroom cool and dark. Avoid screens for an hour before bed. Create a routine that signals to your body that it is time to rest.</p>
         `
+    },
+    {
+        title: 'The Flow State',
+        author: 'Mihaly C.',
+        category: 'Productivity',
+        image: 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80',
+        description: 'How to achieve optimal experience in everything you do.',
+        content: `
+            <h2>Understanding Flow</h2>
+            <p>Flow is a state of mind where you become so immersed in an activity that everything else seems to fade away. It is often described as being "in the zone".</p>
+            <h3>The Components of Flow</h3>
+            <ul>
+                <li><strong>Clear Goals:</strong> You know exactly what needs to be done.</li>
+                <li><strong>Immediate Feedback:</strong> You can see the results of your actions instantly.</li>
+                <li><strong>Challenge-Skill Balance:</strong> The task is difficult enough to be engaging but not so hard it causes anxiety.</li>
+            </ul>
+            <p>When these conditions are met, your focus becomes laser-sharp, and your productivity skyrockets.</p>
+        `
+    },
+    {
+        title: 'Mindful Moments',
+        author: 'Sarah Jenkins',
+        category: 'Mindfulness',
+        image: 'https://images.unsplash.com/photo-1499209974431-9dac3adaf471?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80',
+        description: 'Small practices for a calmer, more focused life.',
+        content: `
+            <h2>Living in the Present</h2>
+            <p>Mindfulness is not about clearing your mind or reaching a state of nirvana. It is simply about being aware of where you are and what you are doing, without being overly reactive or overwhelmed.</p>
+            <h3>The 5-4-3-2-1 Technique</h3>
+            <p>When you feel overwhelmed, try this grounding exercise:</p>
+            <ul>
+                <li>Acknowledge <strong>5</strong> things you see around you.</li>
+                <li>Acknowledge <strong>4</strong> things you can touch.</li>
+                <li>Acknowledge <strong>3</strong> things you hear.</li>
+                <li>Acknowledge <strong>2</strong> things you can smell.</li>
+                <li>Acknowledge <strong>1</strong> thing you can taste.</li>
+            </ul>
+            <p>This simple practice brings you back to the present moment and helps quiet the noise of "what if" thinking.</p>
+        `
+    },
+    {
+        title: 'Peak Performance',
+        author: 'Brad Stulberg',
+        category: 'Self-Growth',
+        image: 'https://images.unsplash.com/photo-1461896704190-321aa77a0c10?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80',
+        description: 'Elevate your game and avoid burnout.',
+        content: `
+            <h2>The Growth Equation</h2>
+            <p>Most people think that to achieve more, they just need to work harder. But the true secret to peak performance is summarized in a simple equation:</p>
+            <p className="text-center fw-bold fs-4">Stress + Rest = Growth</p>
+            <h3>The Importance of Strategic Rest</h3>
+            <p>Hard work (stress) is necessary for improvement, but without rest, it leads to burnout. Rest is when your muscles grow, your brain processes information, and your energy is replenished.</p>
+            <p>To reach your peak, you must learn to work intensely during your focus sessions and rest just as intentionally during your downtime.</p>
+        `
     }
 ];
 

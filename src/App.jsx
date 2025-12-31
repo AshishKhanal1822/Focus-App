@@ -15,6 +15,10 @@ import ScrollToTop from './ScrollToTop';
 
 function AppContent({ theme, toggleTheme, deferredPrompt, handleInstall }) {
   const location = useLocation();
+  const navigate = useNavigate();
+  const [footerEmail, setFooterEmail] = useState('');
+  const [isJoining, setIsJoining] = useState(false);
+  const [showFooterSuccess, setShowFooterSuccess] = useState(false);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -27,21 +31,32 @@ function AppContent({ theme, toggleTheme, deferredPrompt, handleInstall }) {
     }
   };
 
+  const handleFooterJoin = (e) => {
+    e.preventDefault();
+    if (!footerEmail) return;
+
+    setIsJoining(true);
+    setTimeout(() => {
+      setIsJoining(false);
+      setShowFooterSuccess(true);
+      console.log(`Sending welcome email to: ${footerEmail}`);
+
+      setTimeout(() => {
+        setShowFooterSuccess(false);
+        setFooterEmail('');
+        navigate('/');
+      }, 3000);
+    }, 1000);
+  };
+
   return (
     <>
       <nav className="navbar navbar-expand-lg nav-glass sticky-top">
+        {/* ... navbar omitted for brevity, keeping existing structure ... */}
         <div className="container">
           <Link className="navbar-brand fw-bold" to="/" onClick={handleNavClick('/')}>Focus</Link>
 
           <div className="d-flex align-items-center order-lg-last ms-2">
-            {/* <button
-              className="theme-toggle btn btn-link text-decoration-none me-2"
-              onClick={toggleTheme}
-              title="Toggle Theme"
-            >
-              {theme === 'light' ? '🌙' : '☀️'}
-            </button>*/}
-
             <button
               className="navbar-toggler ms-2"
               type="button"
@@ -112,10 +127,26 @@ function AppContent({ theme, toggleTheme, deferredPrompt, handleInstall }) {
             </div>
             <div className="col-md-3">
               <h6 className="fw-bold mb-3">Newsletter</h6>
-              <div className="input-group input-group-sm">
-                <input type="email" className="form-control glass" placeholder="Email" />
-                <button className="btn btn-primary">Join</button>
-              </div>
+              {!showFooterSuccess ? (
+                <form onSubmit={handleFooterJoin} className="input-group input-group-sm">
+                  <input
+                    type="email"
+                    className="form-control glass text-current shadow-none"
+                    placeholder="Email"
+                    required
+                    value={footerEmail}
+                    onChange={(e) => setFooterEmail(e.target.value)}
+                    disabled={isJoining}
+                  />
+                  <button type="submit" className="btn btn-primary" disabled={isJoining}>
+                    {isJoining ? '...' : 'Join'}
+                  </button>
+                </form>
+              ) : (
+                <div className="text-success small d-flex align-items-center gap-2 animate-fade-in">
+                  <span className="fw-bold">Successfully joined!</span>
+                </div>
+              )}
             </div>
           </div>
           <hr className="my-4 opacity-25" />
