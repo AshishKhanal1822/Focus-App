@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { HelpCircle, ChevronDown } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 const faqs = [
     {
@@ -52,7 +53,7 @@ function FAQ() {
                                         <span className="fw-bold fs-5 text-current">{faq.q}</span>
                                         <ChevronDown size={20} className="opacity-50" />
                                     </button>
-                                    <div id={`#faq-${index}`} className="collapse">
+                                    <div id={`faq-${index}`} className="collapse">
                                         <div className="card-body p-4 pt-0 opacity-75">
                                             {faq.a}
                                         </div>
@@ -64,7 +65,7 @@ function FAQ() {
 
                     <div className="text-center mt-5">
                         <p className="opacity-75">Still have questions?</p>
-                        <button className="btn btn-primary px-4 rounded-pill">Contact Support</button>
+                        <Link to="/contact" className="btn btn-primary px-4 rounded-pill">Contact Support</Link>
                     </div>
                 </div>
             </div>

@@ -10,6 +10,7 @@ import FAQ from './FAQ';
 import Testimonials from './Testimonials';
 import GetStarted from './GetStarted';
 import Library from './Library';
+import Writing from './Writing';
 import ScrollToTop from './ScrollToTop';
 
 function AppContent({ theme, toggleTheme, deferredPrompt, handleInstall }) {
@@ -33,13 +34,13 @@ function AppContent({ theme, toggleTheme, deferredPrompt, handleInstall }) {
           <Link className="navbar-brand fw-bold" to="/" onClick={handleNavClick('/')}>Focus</Link>
 
           <div className="d-flex align-items-center order-lg-last ms-2">
-            <button
+            {/* <button
               className="theme-toggle btn btn-link text-decoration-none me-2"
               onClick={toggleTheme}
               title="Toggle Theme"
             >
               {theme === 'light' ? '🌙' : '☀️'}
-            </button>
+            </button>*/}
 
             <button
               className="navbar-toggler ms-2"
@@ -83,6 +84,7 @@ function AppContent({ theme, toggleTheme, deferredPrompt, handleInstall }) {
           <Route path="/contact" element={<Contact />} />
           <Route path="/get-started" element={<GetStarted />} />
           <Route path="/library" element={<Library />} />
+          <Route path="/writing" element={<Writing />} />
         </Routes>
       </div>
 

@@ -52,7 +52,12 @@ function Home() {
                             <div className="card-body p-4 text-center">
                                 <h4 className="fw-bold mb-2">Deep Writing</h4>
                                 <p className="opacity-75 small">Unleash your creativity in a distraction-free zone.</p>
-                                <button className="btn btn-sm btn-outline-primary mt-2 rounded-pill px-4">Open Space</button>
+                                <button
+                                    className="btn btn-sm btn-outline-primary mt-2 rounded-pill px-4"
+                                    onClick={() => navigate('/writing')}
+                                >
+                                    Open Space
+                                </button>
                             </div>
                         </div>
                     </div>

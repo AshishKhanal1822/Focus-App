@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Users, Target, Rocket } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 function About() {
     return (
@@ -33,7 +34,7 @@ function About() {
                                 </div>
                             </div>
                         </div>
-                        <button className="btn btn-primary px-5 py-3 rounded-pill shadow-lg">Join Our Journey</button>
+                        <Link to="/get-started" className="btn btn-primary px-5 py-3 rounded-pill shadow-lg">Join Our Journey</Link>
                     </motion.div>
                 </div>
                 <div className="col-lg-6">
