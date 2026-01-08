@@ -2,25 +2,42 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Users, Target, Rocket, Mail, CheckCircle, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { eventBus } from './agents/core/EventBus.js';
+import SupabaseAdapter from './agents/adapters/SupabaseAdapter.js';
 
 function About() {
     const [email, setEmail] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isJoined, setIsJoined] = useState(false);
+    const [user, setUser] = useState(SupabaseAdapter.cachedUser);
+    const [loading, setLoading] = useState(!SupabaseAdapter.cachedUser);
     const navigate = useNavigate();
+
+    React.useEffect(() => {
+        let mounted = true;
+        SupabaseAdapter.getUser().then(u => {
+            if (mounted) {
+                setUser(u);
+                setLoading(false);
+            }
+        });
+
+        const { data: { subscription } } = SupabaseAdapter.onAuthStateChange((_event, session) => {
+            if (mounted) {
+                setUser(session?.user || null);
+                setLoading(false);
+            }
+        });
+
+        return () => {
+            mounted = false;
+            subscription.unsubscribe();
+        };
+    }, []);
 
     const handleJoin = (e) => {
         e.preventDefault();
-        if (!email) return;
-
-        setIsSubmitting(true);
-        setTimeout(() => {
-            setIsSubmitting(false);
-            setIsJoined(true);
-            setTimeout(() => {
-                navigate('/');
-            }, 3000);
-        }, 1500);
+        eventBus.emit('SHOW_LOGIN');
     };
 
     return (
@@ -54,52 +71,54 @@ function About() {
                             </div>
                         </div>
 
-                        <AnimatePresence mode="wait">
-                            {!isJoined ? (
-                                <motion.form
-                                    key="form"
-                                    onSubmit={handleJoin}
-                                    className="d-flex flex-column flex-sm-row gap-2"
-                                    initial={{ opacity: 1 }}
-                                    exit={{ opacity: 0, y: -20 }}
-                                >
-                                    <div className="input-group" style={{ maxWidth: '350px' }}>
-                                        <span className="input-group-text glass border-0 text-muted">
-                                            <Mail size={18} />
-                                        </span>
-                                        <input
-                                            type="email"
-                                            className="form-control glass border-0 py-3 text-current shadow-none"
-                                            placeholder="Enter your email"
-                                            required
-                                            value={email}
-                                            onChange={(e) => setEmail(e.target.value)}
-                                            disabled={isSubmitting}
-                                        />
-                                    </div>
-                                    <button
-                                        type="submit"
-                                        className="btn btn-primary px-4 py-3 rounded-3 shadow-lg d-flex align-items-center gap-2"
-                                        disabled={isSubmitting}
+                        {!loading && !user && (
+                            <AnimatePresence mode="wait">
+                                {!isJoined ? (
+                                    <motion.form
+                                        key="form"
+                                        onSubmit={handleJoin}
+                                        className="d-flex flex-column flex-sm-row gap-2"
+                                        initial={{ opacity: 1 }}
+                                        exit={{ opacity: 0, y: -20 }}
                                     >
-                                        {isSubmitting ? <Loader2 className="animate-spin" size={20} /> : "Join Journey"}
-                                    </button>
-                                </motion.form>
-                            ) : (
-                                <motion.div
-                                    key="success"
-                                    initial={{ opacity: 0, scale: 0.9 }}
-                                    animate={{ opacity: 1, scale: 1 }}
-                                    className="text-success d-flex align-items-center gap-3 p-3 glass rounded-4 border-success border-opacity-25"
-                                >
-                                    <CheckCircle size={32} />
-                                    <div>
-                                        <h6 className="fw-bold mb-0">Successfully Joined!</h6>
-                                        <p className="small opacity-75 mb-0 text-current">Redirecting to home...</p>
-                                    </div>
-                                </motion.div>
-                            )}
-                        </AnimatePresence>
+                                        <div className="input-group" style={{ maxWidth: '350px' }}>
+                                            <span className="input-group-text glass border-0 text-muted">
+                                                <Mail size={18} />
+                                            </span>
+                                            <input
+                                                type="email"
+                                                className="form-control glass border-0 py-3 text-current shadow-none"
+                                                placeholder="Enter your email"
+                                                required
+                                                value={email}
+                                                onChange={(e) => setEmail(e.target.value)}
+                                                disabled={isSubmitting}
+                                            />
+                                        </div>
+                                        <button
+                                            type="submit"
+                                            className="btn btn-primary px-4 py-3 rounded-3 shadow-lg d-flex align-items-center gap-2"
+                                            disabled={isSubmitting}
+                                        >
+                                            {isSubmitting ? <Loader2 className="animate-spin" size={20} /> : "Join Journey"}
+                                        </button>
+                                    </motion.form>
+                                ) : (
+                                    <motion.div
+                                        key="success"
+                                        initial={{ opacity: 0, scale: 0.9 }}
+                                        animate={{ opacity: 1, scale: 1 }}
+                                        className="text-success d-flex align-items-center gap-3 p-3 glass rounded-4 border-success border-opacity-25"
+                                    >
+                                        <CheckCircle size={32} />
+                                        <div>
+                                            <h6 className="fw-bold mb-0">Successfully Joined!</h6>
+                                            <p className="small opacity-75 mb-0 text-current">Redirecting to profile...</p>
+                                        </div>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+                        )}
                     </motion.div>
                 </div>
                 <div className="col-lg-6">

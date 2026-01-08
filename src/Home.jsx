@@ -1,5 +1,7 @@
 import React from 'react';
+import SupabaseAdapter from './agents/adapters/SupabaseAdapter';
 import { useNavigate } from 'react-router-dom';
+import { eventBus } from './agents/core/EventBus';
 import Todo from './Todo';
 import Features from './Features';
 import About from './About';
@@ -9,6 +11,30 @@ import Library from './Library';
 
 function Home() {
     const navigate = useNavigate();
+    const [user, setUser] = React.useState(SupabaseAdapter.cachedUser);
+    const [loading, setLoading] = React.useState(!SupabaseAdapter.cachedUser);
+
+    React.useEffect(() => {
+        let mounted = true;
+        SupabaseAdapter.getUser().then(u => {
+            if (mounted) {
+                setUser(u);
+                setLoading(false);
+            }
+        });
+
+        const { data: { subscription } } = SupabaseAdapter.onAuthStateChange((_event, session) => {
+            if (mounted) {
+                setUser(session?.user || null);
+                setLoading(false);
+            }
+        });
+
+        return () => {
+            mounted = false;
+            subscription.unsubscribe();
+        };
+    }, []);
 
     return (
         <div className="hero-gradient pb-5">
@@ -22,12 +48,14 @@ function Home() {
                     deepen your reading, and sharpen your writing.
                 </p>
                 <div className="d-flex justify-content-center gap-3">
-                    <button
-                        className="btn btn-primary shadow-lg px-4 py-2 fs-5"
-                        onClick={() => navigate('/get-started')}
-                    >
-                        Get Started
-                    </button>
+                    {!loading && !user && (
+                        <button
+                            className="btn btn-primary shadow-lg px-4 py-2 fs-5"
+                            onClick={() => eventBus.emit('SHOW_LOGIN')}
+                        >
+                            Get Started
+                        </button>
+                    )}
                     <button
                         className="btn btn-outline-secondary px-4 rounded-3 border-2"
                         onClick={() => {
