@@ -1,0 +1,22 @@
+/* src/components/FocusTimer.css */
+.focus-timer {
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+  border-radius: 0.75rem;
+  color: var(--text-color, #000);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.focus-timer:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 40px rgba(0, 0, 0, 0.15);
+}
+.btn-outline-danger {
+  border-color: #ff4d4f;
+  color: #ff4d4f;
+}
+.btn-outline-danger:hover {
+  background-color: #ff4d4f;
+  color: #fff;
+}
