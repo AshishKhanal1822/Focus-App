@@ -123,8 +123,8 @@ body {
 
 .hero-gradient {
     background:
-        radial-gradient(circle at 0% 0%, rgba(99, 102, 241, 0.1), transparent 40%),
-        radial-gradient(circle at 100% 100%, rgba(16, 185, 129, 0.1), transparent 40%);
+        radial-gradient(circle at 100% 0%, rgba(99, 102, 241, 0.15), transparent 50%),
+        radial-gradient(circle at 0% 100%, rgba(16, 185, 129, 0.15), transparent 50%);
 }
 
 .btn-primary {
@@ -228,7 +228,7 @@ body {
     font-weight: 800;
     font-size: 1.75rem;
     font-family: 'Plus Jakarta Sans', sans-serif;
-    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
     background-clip: text;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -354,4 +354,76 @@ footer {
     color: white;
     text-transform: uppercase;
     letter-spacing: 0.05em;
+}
+
+/* New Section Styles */
+.bg-glass-subtle {
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(10px);
+}
+
+[data-theme='dark'] .bg-glass-subtle {
+    background: rgba(0, 0, 0, 0.2);
+}
+
+.text-current {
+    color: var(--text-color);
+}
+
+.glass-img {
+    border-radius: 24px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+    border: 1px solid var(--glass-border);
+}
+
+/* Accordion Custom */
+.accordion-custom .accordion-item {
+    background: var(--card-bg) !important;
+    border: 1px solid var(--glass-border) !important;
+    margin-bottom: 1rem;
+    border-radius: 12px !important;
+    overflow: hidden;
+}
+
+.accordion-custom .accordion-button {
+    background: transparent !important;
+    color: var(--text-color) !important;
+    box-shadow: none !important;
+    font-weight: 600;
+}
+
+.accordion-custom .accordion-button:not(.collapsed) {
+    color: var(--primary) !important;
+}
+
+.input-group .glass {
+    border: 1px solid var(--glass-border) !important;
+    background: var(--card-bg) !important;
+    color: var(--text-color) !important;
+}
+
+.scroll-to-top:hover {
+    background: var(--primary) !important;
+    color: white !important;
+}
+
+.hover-scale {
+    transition: transform 0.3s ease;
+}
+
+.hover-scale:hover {
+    transform: scale(1.05);
+}
+
+.hover-lift {
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.hover-lift:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 15px 35px rgba(99, 102, 241, 0.2) !important;
+}
+
+.cursor-pointer {
+    cursor: pointer;
 }

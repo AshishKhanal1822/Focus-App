@@ -4,7 +4,7 @@ import SupabaseAdapter from '../agents/adapters/SupabaseAdapter.js';
 import { eventBus } from '../agents/core/EventBus.js';
 import { motion, AnimatePresence } from 'framer-motion';
 
-export default function ProfileAvatar({ user, onUploadSuccess }) {
+export default function ProfilePhoto({ user, onUploadSuccess }) {
     const [stream, setStream] = useState(null);
     const [capturedImage, setCapturedImage] = useState(null);
     const [loading, setLoading] = useState(false);
@@ -28,6 +28,7 @@ export default function ProfileAvatar({ user, onUploadSuccess }) {
     // Cleanup stream on unmount or when showCamera is false
     React.useEffect(() => {
         if (!showCamera) stopCamera();
+        return () => stopCamera();
     }, [showCamera]);
 
     const startCamera = async () => {
@@ -39,6 +40,7 @@ export default function ProfileAvatar({ user, onUploadSuccess }) {
             setShowCamera(true);
         } catch (err) {
             console.error("Error accessing camera:", err);
+            alert("Could not access camera. Please check permissions.");
         }
     };
 
@@ -58,6 +60,7 @@ export default function ProfileAvatar({ user, onUploadSuccess }) {
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
             context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            // Compress and convert to base64
             const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
             setCapturedImage(dataUrl);
             stopCamera();
@@ -67,10 +70,14 @@ export default function ProfileAvatar({ user, onUploadSuccess }) {
     const handleSave = async () => {
         if (!capturedImage) return;
         setLoading(true);
+        console.log("Saving image to profile...");
         const { error } = await SupabaseAdapter.updateProfile({ avatar_url: capturedImage });
         setLoading(false);
 
-        if (!error) {
+        if (error) {
+            console.error("Profile update error:", error);
+            alert("Failed to save photo: " + error.message);
+        } else {
             setCapturedImage(null);
             eventBus.emit('PROFILE_UPDATED');
             if (onUploadSuccess) onUploadSuccess();
@@ -81,7 +88,9 @@ export default function ProfileAvatar({ user, onUploadSuccess }) {
         const file = e.target.files[0];
         if (file) {
             const reader = new FileReader();
-            reader.onloadend = () => setCapturedImage(reader.result);
+            reader.onloadend = () => {
+                setCapturedImage(reader.result);
+            };
             reader.readAsDataURL(file);
         }
     };
@@ -89,7 +98,7 @@ export default function ProfileAvatar({ user, onUploadSuccess }) {
     return (
         <div className="position-relative d-inline-block">
             <div className="rounded-circle border border-3 border-white shadow-lg overflow-hidden position-relative" style={{ width: '80px', height: '80px' }}>
-                <AnimatePresence>
+                <AnimatePresence mode="wait">
                     {/* Default Avatar State */}
                     {!showCamera && !capturedImage && (
                         <motion.div
@@ -144,52 +153,58 @@ export default function ProfileAvatar({ user, onUploadSuccess }) {
 
                 {/* Loading Overlay */}
                 {loading && (
-                    <div className="position-absolute inset-0 bg-dark bg-opacity-50 d-flex align-items-center justify-content-center z-index-10">
+                    <div className="position-absolute start-0 top-0 w-100 h-100 bg-dark bg-opacity-50 d-flex align-items-center justify-content-center" style={{ zIndex: 10 }}>
                         <div className="spinner-border spinner-border-sm text-white" />
                     </div>
                 )}
             </div>
 
             {/* Controls Side Overlay */}
-            <div className="position-absolute bottom-0 end-0 translate-middle-x mb-n2 me-n2 d-flex flex-column gap-2" style={{ zIndex: 5 }}>
-                <AnimatePresence>
+            <div className="position-absolute bottom-0 end-0 mb-n1 me-n1 d-flex gap-1" style={{ zIndex: 5 }}>
+                <AnimatePresence mode="wait">
                     {!showCamera && !capturedImage ? (
                         <motion.div
+                            key="idle-controls"
                             initial={{ scale: 0 }}
                             animate={{ scale: 1 }}
+                            exit={{ scale: 0 }}
                             className="d-flex gap-1"
                         >
-                            <button className="btn btn-sm glass rounded-circle p-2 shadow hover-scale" onClick={startCamera}>
-                                <Camera size={12} />
+                            <button className="btn btn-sm glass rounded-circle p-1 shadow-sm hover-scale" onClick={startCamera}>
+                                <Camera size={14} />
                             </button>
-                            <button className="btn btn-sm glass rounded-circle p-2 shadow hover-scale" onClick={() => fileInputRef.current.click()}>
-                                <Upload size={12} />
+                            <button className="btn btn-sm glass rounded-circle p-1 shadow-sm hover-scale" onClick={() => fileInputRef.current.click()}>
+                                <Upload size={14} />
                             </button>
                         </motion.div>
                     ) : showCamera ? (
                         <motion.div
+                            key="camera-controls"
                             initial={{ scale: 0 }}
                             animate={{ scale: 1 }}
+                            exit={{ scale: 0 }}
                             className="d-flex gap-1"
                         >
-                            <button className="btn btn-sm btn-danger rounded-circle p-2 shadow hover-scale" onClick={stopCamera}>
-                                <X size={12} />
+                            <button className="btn btn-sm btn-danger rounded-circle p-1 shadow-sm hover-scale" onClick={stopCamera}>
+                                <X size={14} />
                             </button>
-                            <button className="btn btn-sm btn-primary rounded-circle p-2 shadow hover-scale" onClick={takePhoto}>
-                                <Camera size={12} />
+                            <button className="btn btn-sm btn-primary rounded-circle p-1 shadow-sm hover-scale" onClick={takePhoto}>
+                                <Camera size={14} />
                             </button>
                         </motion.div>
                     ) : (
                         <motion.div
+                            key="preview-controls"
                             initial={{ scale: 0 }}
                             animate={{ scale: 1 }}
+                            exit={{ scale: 0 }}
                             className="d-flex gap-1"
                         >
-                            <button className="btn btn-sm btn-light rounded-circle p-2 shadow hover-scale" onClick={() => setCapturedImage(null)}>
-                                <RefreshCw size={12} />
+                            <button className="btn btn-sm btn-light rounded-circle p-1 shadow-sm hover-scale" onClick={() => setCapturedImage(null)}>
+                                <RefreshCw size={14} />
                             </button>
-                            <button className="btn btn-sm btn-success rounded-circle p-2 shadow hover-scale" onClick={handleSave}>
-                                <Check size={12} />
+                            <button className="btn btn-sm btn-success rounded-circle p-1 shadow-sm hover-scale" onClick={handleSave}>
+                                <Check size={14} />
                             </button>
                         </motion.div>
                     )}

@@ -20,14 +20,17 @@ export default function Profile({ initialUser = null }) {
         setUser(u);
     };
 
+    // Sync with prop if parent updates
     useEffect(() => {
         if (initialUser !== undefined) {
             setUser(initialUser);
         }
     }, [initialUser]);
 
+    // Sync auth state
     useEffect(() => {
         let mounted = true;
+
         async function checkUser() {
             try {
                 const u = await SupabaseAdapter.getUser();
@@ -43,13 +46,14 @@ export default function Profile({ initialUser = null }) {
             const result = SupabaseAdapter.onAuthStateChange((_event, session) => {
                 if (mounted) setUser(session?.user || null);
             });
-            if (result?.data?.subscription) {
+            // Handle both structure types just in case SDK version differs
+            if (result && result.data && result.data.subscription) {
                 sub = result.data.subscription;
-            } else if (result?.unsubscribe) {
+            } else if (result && result.unsubscribe) {
                 sub = result;
             }
         } catch (e) {
-            console.warn("Supabase auth subscription failed:", e);
+            console.warn("Supabase auth subscription failed (Config missing?):", e);
         }
 
         return () => {
@@ -90,7 +94,6 @@ export default function Profile({ initialUser = null }) {
     };
 
     if (user) {
-        const avatarUrl = user.user_metadata?.avatar_url;
         const displayName = user.email.split('@')[0];
 
         return (
