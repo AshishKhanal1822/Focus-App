@@ -1,13 +1,12 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Users, Target, Rocket, Mail, CheckCircle, Loader2 } from 'lucide-react';
+import { Users, Target, Rocket, CheckCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { eventBus } from './agents/core/EventBus.js';
 import SupabaseAdapter from './agents/adapters/SupabaseAdapter.js';
 
 function About() {
-    const [email, setEmail] = useState('');
-    const [isSubmitting, setIsSubmitting] = useState(false);
+
     const [isJoined, setIsJoined] = useState(false);
     const [user, setUser] = useState(SupabaseAdapter.cachedUser);
     const [loading, setLoading] = useState(!SupabaseAdapter.cachedUser);
@@ -74,35 +73,18 @@ function About() {
                         {!loading && !user && (
                             <AnimatePresence mode="wait">
                                 {!isJoined ? (
-                                    <motion.form
-                                        key="form"
-                                        onSubmit={handleJoin}
-                                        className="d-flex flex-column flex-sm-row gap-2"
+                                    <motion.div
+                                        key="join-action"
                                         initial={{ opacity: 1 }}
                                         exit={{ opacity: 0, y: -20 }}
                                     >
-                                        <div className="input-group" style={{ maxWidth: '350px' }}>
-                                            <span className="input-group-text glass border-0 text-muted">
-                                                <Mail size={18} />
-                                            </span>
-                                            <input
-                                                type="email"
-                                                className="form-control glass border-0 py-3 text-current shadow-none"
-                                                placeholder="Enter your email"
-                                                required
-                                                value={email}
-                                                onChange={(e) => setEmail(e.target.value)}
-                                                disabled={isSubmitting}
-                                            />
-                                        </div>
                                         <button
-                                            type="submit"
-                                            className="btn btn-primary px-4 py-3 rounded-3 shadow-lg d-flex align-items-center gap-2"
-                                            disabled={isSubmitting}
+                                            className="btn btn-primary btn-lg px-5 py-3 rounded-3 shadow-lg d-flex align-items-center gap-2"
+                                            onClick={handleJoin}
                                         >
-                                            {isSubmitting ? <Loader2 className="animate-spin" size={20} /> : "Join Journey"}
+                                            Join Journey
                                         </button>
-                                    </motion.form>
+                                    </motion.div>
                                 ) : (
                                     <motion.div
                                         key="success"
