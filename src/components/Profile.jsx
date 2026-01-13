@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import SupabaseAdapter from '../agents/adapters/SupabaseAdapter.js';
 import ProfilePhoto from './ProfilePhoto.jsx';
+import WelcomeAnimation from './WelcomeAnimation.jsx';
 import { motion } from 'framer-motion';
 import {
     User, Mail, ShieldCheck,
@@ -14,6 +15,9 @@ export default function Profile({ initialUser = null }) {
     const [message, setMessage] = useState('');
     const [user, setUser] = useState(initialUser);
     const [loading, setLoading] = useState(false);
+    const [showWelcome, setShowWelcome] = useState(false);
+    const [welcomeUser, setWelcomeUser] = useState(null);
+    const previousUserRef = useRef(null);
 
     const refreshUser = async () => {
         const u = await SupabaseAdapter.getUser();
@@ -44,7 +48,19 @@ export default function Profile({ initialUser = null }) {
         let sub = null;
         try {
             const result = SupabaseAdapter.onAuthStateChange((_event, session) => {
-                if (mounted) setUser(session?.user || null);
+                if (mounted) {
+                    const newUser = session?.user || null;
+                    const previousUser = previousUserRef.current;
+                    
+                    // Show welcome animation if user just logged in (was null, now has user)
+                    if (!previousUser && newUser && _event === 'SIGNED_IN') {
+                        setWelcomeUser(newUser);
+                        setShowWelcome(true);
+                    }
+                    
+                    previousUserRef.current = newUser;
+                    setUser(newUser);
+                }
             });
             // Handle both structure types just in case SDK version differs
             if (result && result.data && result.data.subscription) {
@@ -78,6 +94,11 @@ export default function Profile({ initialUser = null }) {
                 setMessage('Check your email for confirmation link!');
             } else {
                 setMessage('Success!');
+                // Show welcome animation on successful login
+                if (isLogin && data.user) {
+                    setWelcomeUser(data.user);
+                    setShowWelcome(true);
+                }
             }
         }
         setLoading(false);
@@ -97,12 +118,22 @@ export default function Profile({ initialUser = null }) {
         const displayName = user.email.split('@')[0];
 
         return (
-            <motion.div
-                className="p-3"
-                initial="hidden"
-                animate="visible"
-                variants={containerVariants}
-            >
+            <>
+                {showWelcome && welcomeUser && (
+                    <WelcomeAnimation 
+                        user={welcomeUser} 
+                        onComplete={() => {
+                            setShowWelcome(false);
+                            setWelcomeUser(null);
+                        }}
+                    />
+                )}
+                <motion.div
+                    className="p-3"
+                    initial="hidden"
+                    animate="visible"
+                    variants={containerVariants}
+                >
                 <div className="text-center mb-3">
                     <ProfilePhoto user={user} onUploadSuccess={refreshUser} />
 
@@ -130,6 +161,7 @@ export default function Profile({ initialUser = null }) {
                     <span style={{ fontSize: '0.7rem' }}>Cloud sync active</span>
                 </div>
             </motion.div>
+            </>
         );
     }
 

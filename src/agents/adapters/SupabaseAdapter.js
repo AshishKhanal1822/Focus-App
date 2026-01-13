@@ -46,6 +46,11 @@ class SupabaseAdapter {
         return !!this.supabase;
     }
 
+    // Get the supabase client safely
+    getClient() {
+        return this.supabase;
+    }
+
     // --- Auth Methods ---
 
     async signUp(email, password) {

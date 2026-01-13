@@ -1,5 +1,5 @@
 import './App.css'
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import React from "react";
 import { BrowserRouter as Router, Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom';
 import Home from './Home';
@@ -15,6 +15,7 @@ import ScrollToTop from './ScrollToTop';
 import Profile from './components/Profile.jsx';
 import NavProfile from './components/NavProfile.jsx';
 import FocusTimer from './components/FocusTimer.jsx';
+import WelcomeAnimation from './components/WelcomeAnimation.jsx';
 import { FocusManagerAgent } from './agents/focus/FocusManagerAgent.js';
 import { NotificationAgent } from './agents/focus/NotificationAgent.js';
 import { StorageAgent } from './agents/storage/StorageAgent.js';
@@ -22,6 +23,7 @@ import { AuthAgent } from './agents/auth/AuthAgent.js';
 import NavFocusTimer from './components/NavFocusTimer.jsx';
 import { eventBus } from './agents/core/EventBus.js';
 import { useAgentEvent } from './hooks/useAgentEvent';
+import SupabaseAdapter from './agents/adapters/SupabaseAdapter.js';
 
 function AppContent({ theme, toggleTheme, deferredPrompt, handleInstall }) {
   const focusState = useAgentEvent('FOCUS_STATE_UPDATED', { status: 'idle' });
@@ -31,6 +33,9 @@ function AppContent({ theme, toggleTheme, deferredPrompt, handleInstall }) {
   const [footerEmail, setFooterEmail] = useState('');
   const [isJoining, setIsJoining] = useState(false);
   const [showFooterSuccess, setShowFooterSuccess] = useState(false);
+  const [showWelcome, setShowWelcome] = useState(false);
+  const [welcomeUser, setWelcomeUser] = useState(null);
+  const previousUserRef = useRef(null);
 
   // Initialise agents once for the app lifecycle
   useEffect(() => {
@@ -62,6 +67,54 @@ function AppContent({ theme, toggleTheme, deferredPrompt, handleInstall }) {
     window.scrollTo(0, 0);
   }, [location.pathname]);
 
+  // Listen for login events to show welcome animation
+  useEffect(() => {
+    let mounted = true;
+    let sub = null;
+
+    const checkInitialUser = async () => {
+      const user = await SupabaseAdapter.getUser();
+      if (mounted) {
+        previousUserRef.current = user;
+      }
+    };
+    checkInitialUser();
+
+    try {
+      const result = SupabaseAdapter.onAuthStateChange((event, session) => {
+        if (mounted) {
+          const newUser = session?.user || null;
+          const previousUser = previousUserRef.current;
+          
+          // Show welcome animation if user just logged in (was null, now has user)
+          if (!previousUser && newUser && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
+            setWelcomeUser(newUser);
+            setShowWelcome(true);
+          }
+          
+          previousUserRef.current = newUser;
+        }
+      });
+
+      if (result && result.data && result.data.subscription) {
+        sub = result.data.subscription;
+      } else if (result && result.unsubscribe) {
+        sub = result;
+      }
+    } catch (e) {
+      console.warn("Failed to set up auth listener for welcome animation:", e);
+    }
+
+    return () => {
+      mounted = false;
+      if (sub && typeof sub.unsubscribe === 'function') {
+        sub.unsubscribe();
+      } else if (sub && sub.data && sub.data.subscription) {
+        sub.data.subscription.unsubscribe();
+      }
+    };
+  }, []);
+
   const handleNavClick = (path) => (e) => {
     if (location.pathname === path) {
       e.preventDefault();
@@ -76,6 +129,15 @@ function AppContent({ theme, toggleTheme, deferredPrompt, handleInstall }) {
 
   return (
     <>
+      {showWelcome && welcomeUser && (
+        <WelcomeAnimation 
+          user={welcomeUser} 
+          onComplete={() => {
+            setShowWelcome(false);
+            setWelcomeUser(null);
+          }}
+        />
+      )}
       <nav className="navbar navbar-expand-lg nav-glass sticky-top">
         <div className="container">
           <Link className="navbar-brand fw-bold" to="/" onClick={handleNavClick('/')}>Focus</Link>
