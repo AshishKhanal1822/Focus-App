@@ -112,7 +112,13 @@ class SupabaseAdapter {
     }
 
     onAuthStateChange(callback) {
-        if (!this.supabase) return null;
+        if (!this.supabase) {
+            console.warn("Supabase not initialized: Returning dummy subscription for onAuthStateChange");
+            return {
+                data: { subscription: { unsubscribe: () => { } } },
+                unsubscribe: () => { } // Fallback for different SDK versions
+            };
+        }
         return this.supabase.auth.onAuthStateChange(callback);
     }
 
