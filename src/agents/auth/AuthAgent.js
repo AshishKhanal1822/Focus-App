@@ -14,14 +14,10 @@ export class AuthAgent extends BaseAgent {
         this.emitAuthState();
 
         // Listen for auth changes
-        const { data } = SupabaseAdapter.onAuthStateChange((event, session) => {
+        SupabaseAdapter.onAuthStateChange((event, session) => {
             this.user = session?.user || null;
             this.emitAuthState();
         });
-
-        // Store subscription for cleanup if we ever destroy this agent (though it's usually singleton)
-        // If data.subscription exists, or the result itself is a subscription (older SDKs)
-        this.authSubscription = data?.subscription || data;
 
         // Listen for requests (if UI sends them via EventBus, though direct Adapter calls are okay for login forms)
         this.on('AUTH_LOGIN', this.handleLogin.bind(this));
