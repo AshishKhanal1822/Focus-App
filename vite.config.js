@@ -40,7 +40,8 @@ export default defineConfig({
         ]
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg}']
+        // globPatterns: ['**/*.{js,css,html,ico,png,svg}']
+        // Suppress warnings in dev mode. These will be auto-generated in build.
       }
     })
   ],

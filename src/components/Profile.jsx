@@ -17,10 +17,36 @@ export default function Profile({ initialUser = null }) {
     const [loading, setLoading] = useState(false);
     const [showWelcome, setShowWelcome] = useState(false);
     const [welcomeUser, setWelcomeUser] = useState(null);
+    const [isEditing, setIsEditing] = useState(false);
+    const [newName, setNewName] = useState('');
+    const [isUpdating, setIsUpdating] = useState(false);
     const previousUserRef = useRef(null);
 
+    const handleUpdateName = async (e) => {
+        e.preventDefault();
+        if (!newName.trim()) return;
+        setIsUpdating(true);
+        const { error } = await SupabaseAdapter.updateProfile({ full_name: newName });
+        if (error) {
+            console.error("Name update failed", error);
+            alert("Failed to update name");
+        } else {
+            setIsEditing(false);
+            refreshUser();
+        }
+        setIsUpdating(false);
+    };
+
     const refreshUser = async () => {
+        console.log("Refreshing user data...");
         const u = await SupabaseAdapter.getUser();
+        if (u) {
+            const profile = await SupabaseAdapter.getProfile(u.id);
+            console.log("Fetched profile:", profile);
+            if (profile) {
+                u.user_metadata = { ...u.user_metadata, ...profile };
+            }
+        }
         setUser(u);
     };
 
@@ -38,7 +64,15 @@ export default function Profile({ initialUser = null }) {
         async function checkUser() {
             try {
                 const u = await SupabaseAdapter.getUser();
-                if (mounted) setUser(u);
+                if (mounted && u) {
+                    // Try to fetch extended profile
+                    const profile = await SupabaseAdapter.getProfile(u.id);
+                    if (profile) {
+                        // Merge profile data into user metadata for display consistency
+                        u.user_metadata = { ...u.user_metadata, ...profile };
+                    }
+                    setUser(u);
+                }
             } catch (e) {
                 console.error("Auth check failed:", e);
             }
@@ -51,13 +85,13 @@ export default function Profile({ initialUser = null }) {
                 if (mounted) {
                     const newUser = session?.user || null;
                     const previousUser = previousUserRef.current;
-                    
+
                     // Show welcome animation if user just logged in (was null, now has user)
                     if (!previousUser && newUser && _event === 'SIGNED_IN') {
                         setWelcomeUser(newUser);
                         setShowWelcome(true);
                     }
-                    
+
                     previousUserRef.current = newUser;
                     setUser(newUser);
                 }
@@ -114,14 +148,15 @@ export default function Profile({ initialUser = null }) {
         visible: { opacity: 1, x: 0 }
     };
 
+    // Logged In View
     if (user) {
-        const displayName = user.email.split('@')[0];
+        const displayName = user.user_metadata?.full_name || user.email.split('@')[0];
 
         return (
             <>
                 {showWelcome && welcomeUser && (
-                    <WelcomeAnimation 
-                        user={welcomeUser} 
+                    <WelcomeAnimation
+                        user={welcomeUser}
                         onComplete={() => {
                             setShowWelcome(false);
                             setWelcomeUser(null);
@@ -134,39 +169,77 @@ export default function Profile({ initialUser = null }) {
                     animate="visible"
                     variants={containerVariants}
                 >
-                <div className="text-center mb-3">
-                    <ProfilePhoto user={user} onUploadSuccess={refreshUser} />
+                    <div className="text-center mb-3">
+                        <ProfilePhoto user={user} onUploadSuccess={refreshUser} />
 
-                    <h4 className="fw-bold mb-0 mt-3 text-gradient">{displayName}</h4>
-                    <p className="text-muted small mb-0">Standard Account</p>
-                </div>
-
-                <div className="list-group list-group-flush border-0 mb-1">
-                    <motion.div variants={itemVariants} className="list-group-item bg-transparent border-0 px-0 d-flex align-items-center justify-content-between py-2 cursor-pointer hover-scale">
-                        <div className="d-flex align-items-center gap-2">
-                            <div className="p-2 rounded-circle bg-primary bg-opacity-10 text-primary">
-                                <Mail size={16} />
+                        {isEditing ? (
+                            <form onSubmit={handleUpdateName} className="mt-3 d-flex flex-column align-items-center gap-2">
+                                <input
+                                    type="text"
+                                    className="form-control form-control-sm text-center"
+                                    value={newName}
+                                    onChange={(e) => setNewName(e.target.value)}
+                                    style={{ maxWidth: '200px' }}
+                                    autoFocus
+                                />
+                                <div className="d-flex gap-2">
+                                    <button type="submit" className="btn btn-xs btn-primary py-1 px-3 rounded-pill" disabled={isUpdating}>
+                                        {isUpdating ? '...' : 'Save'}
+                                    </button>
+                                    <button type="button" className="btn btn-xs btn-outline-secondary py-1 px-3 rounded-pill" onClick={() => setIsEditing(false)}>
+                                        Cancel
+                                    </button>
+                                </div>
+                            </form>
+                        ) : (
+                            <div className="d-flex align-items-center justify-content-center gap-2 mt-3 group cursor-pointer" onClick={() => { setNewName(displayName); setIsEditing(true); }}>
+                                <h4 className="fw-bold mb-0 text-gradient pointer-events-none">{displayName}</h4>
+                                <Settings size={14} className="text-muted opacity-50 group-hover:opacity-100 transition-opacity" />
                             </div>
-                            <div>
-                                <div className="small fw-semibold">Email</div>
-                                <div className="small text-muted" style={{ fontSize: '0.75rem' }}>{user.email}</div>
-                            </div>
-                        </div>
-                        <ChevronRight size={14} className="text-muted" />
-                    </motion.div>
-                </div>
+                        )}
+                        <p className="text-muted small mb-0 mt-1">Standard Account</p>
+                    </div>
 
-                <div className="mt-3 pt-3 border-top border-light d-flex align-items-center justify-content-center gap-2 text-muted small opacity-50">
-                    <ShieldCheck size={12} />
-                    <span style={{ fontSize: '0.7rem' }}>Cloud sync active</span>
-                </div>
-            </motion.div>
+                    <div className="list-group list-group-flush border-0 mb-1">
+                        <motion.div variants={itemVariants} className="list-group-item bg-transparent border-0 px-0 d-flex align-items-center justify-content-between py-2 cursor-pointer hover-scale">
+                            <div className="d-flex align-items-center gap-2">
+                                <div className="p-2 rounded-circle bg-primary bg-opacity-10 text-primary">
+                                    <Mail size={16} />
+                                </div>
+                                <div>
+                                    <div className="small fw-semibold">Email</div>
+                                    <div className="small text-muted" style={{ fontSize: '0.75rem' }}>{user.email}</div>
+                                </div>
+                            </div>
+                            <ChevronRight size={14} className="text-muted" />
+                        </motion.div>
+                    </div>
+
+                    <div className="mt-3 pt-3 border-top border-light d-flex align-items-center justify-content-center gap-2 text-muted small opacity-50">
+                        <ShieldCheck size={12} />
+                        <span style={{ fontSize: '0.7rem' }}>Cloud sync active</span>
+                    </div>
+                </motion.div>
             </>
         );
     }
 
+    // Checking Connection
     const isConnected = SupabaseAdapter.isConnected();
+    const [connectionStatus, setConnectionStatus] = useState('checking');
 
+    useEffect(() => {
+        async function checkConnection() {
+            const { success, error } = await SupabaseAdapter.testConnection();
+            setConnectionStatus(success ? 'connected' : 'error');
+            if (!success) {
+                console.warn("Supabase connection check failed:", error);
+            }
+        }
+        checkConnection();
+    }, []);
+
+    // Login View
     return (
         <motion.div
             className="p-4"
@@ -178,6 +251,14 @@ export default function Profile({ initialUser = null }) {
                     <User size={32} />
                 </div>
                 <h3 className="fw-bold mb-1">{isLogin ? 'Welcome Back' : 'Join Focus'}</h3>
+
+                {connectionStatus === 'error' && (
+                    <div className="alert alert-danger small mt-2 py-2">
+                        Unable to connect to database. <br />
+                        Please check your internet or correct the API Key in .env.
+                    </div>
+                )}
+
                 <p className="text-muted small">The most powerful way to stay productive</p>
             </div>
 

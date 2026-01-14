@@ -35,6 +35,7 @@ function AppContent({ theme, toggleTheme, deferredPrompt, handleInstall }) {
   const [showFooterSuccess, setShowFooterSuccess] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
   const [welcomeUser, setWelcomeUser] = useState(null);
+  const [user, setUser] = useState(null);
   const previousUserRef = useRef(null);
 
   // Initialise agents once for the app lifecycle
@@ -76,6 +77,7 @@ function AppContent({ theme, toggleTheme, deferredPrompt, handleInstall }) {
       const user = await SupabaseAdapter.getUser();
       if (mounted) {
         previousUserRef.current = user;
+        setUser(user);
       }
     };
     checkInitialUser();
@@ -85,13 +87,14 @@ function AppContent({ theme, toggleTheme, deferredPrompt, handleInstall }) {
         if (mounted) {
           const newUser = session?.user || null;
           const previousUser = previousUserRef.current;
-          
+
           // Show welcome animation if user just logged in (was null, now has user)
           if (!previousUser && newUser && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
             setWelcomeUser(newUser);
             setShowWelcome(true);
           }
-          
+          setUser(newUser);
+
           previousUserRef.current = newUser;
         }
       });
@@ -130,8 +133,8 @@ function AppContent({ theme, toggleTheme, deferredPrompt, handleInstall }) {
   return (
     <>
       {showWelcome && welcomeUser && (
-        <WelcomeAnimation 
-          user={welcomeUser} 
+        <WelcomeAnimation
+          user={welcomeUser}
           onComplete={() => {
             setShowWelcome(false);
             setWelcomeUser(null);
@@ -177,9 +180,11 @@ function AppContent({ theme, toggleTheme, deferredPrompt, handleInstall }) {
                 <li className="nav-item">
                   <Link className="nav-link px-3" to="/faq" onClick={handleNavClick('/faq')}>FAQ</Link>
                 </li>
-                <li className="nav-item">
-                  <Link className="nav-link px-3" to="/contact" onClick={handleNavClick('/contact')}>Contact</Link>
-                </li>
+                {!user && (
+                  <li className="nav-item">
+                    <Link className="nav-link px-3" to="/contact" onClick={handleNavClick('/contact')}>Contact</Link>
+                  </li>
+                )}
               </ul>
             )}
           </div>
@@ -194,7 +199,7 @@ function AppContent({ theme, toggleTheme, deferredPrompt, handleInstall }) {
           <Route path="/about" element={<About />} />
           <Route path="/faq" element={<FAQ />} />
           <Route path="/testimonials" element={<Testimonials />} />
-          <Route path="/contact" element={<Contact />} />
+          <Route path="/contact" element={!user ? <Contact /> : <Home />} />
           <Route path="/get-started" element={<GetStarted />} />
           <Route path="/library" element={<Library />} />
           <Route path="/writing" element={<Writing />} />

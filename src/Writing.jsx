@@ -128,14 +128,14 @@ function Writing() {
                         {savedStatus && <span className="text-success d-flex align-items-center gap-1"><Check size={14} /> {savedStatus}</span>}
                     </div>
                     <div className="d-flex gap-2">
-                        <button className="btn btn-sm btn-light rounded-circle p-2 hover-scale" onClick={handleSave} title="Save Draft">
+                        <button className="btn btn-sm bg-light border-0 rounded-circle p-2 hover-scale text-body" onClick={handleSave} title="Save Draft">
                             <Save size={18} className="opacity-75" />
                         </button>
-                        <button className="btn btn-sm btn-light rounded-circle p-2 hover-scale" onClick={handleClear} title="Clear">
+                        <button className="btn btn-sm bg-light border-0 rounded-circle p-2 hover-scale text-body" onClick={handleClear} title="Clear">
                             <Trash2 size={18} className="opacity-75" />
                         </button>
                         <div className="vr opacity-25 mx-1"></div>
-                        <button className="btn btn-sm btn-light rounded-circle p-2 hover-scale" onClick={toggleFullScreen} title="Toggle Fullscreen">
+                        <button className="btn btn-sm bg-light border-0 rounded-circle p-2 hover-scale text-body" onClick={toggleFullScreen} title="Toggle Fullscreen">
                             {isFullScreen ? <Minimize2 size={18} className="opacity-75" /> : <Maximize2 size={18} className="opacity-75" />}
                         </button>
                     </div>

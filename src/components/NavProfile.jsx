@@ -9,8 +9,29 @@ export default function NavProfile() {
     const [user, setUser] = useState(SupabaseAdapter.cachedUser);
     const [isOpen, setIsOpen] = useState(false);
     const [loading, setLoading] = useState(!SupabaseAdapter.cachedUser);
+    const [localAvatar, setLocalAvatar] = useState(localStorage.getItem('user_avatar_local'));
     const dropdownRef = useRef(null);
     const navigate = useNavigate();
+
+    const avatarUrl = localAvatar || user?.user_metadata?.avatar_url;
+    const initials = user?.email ? user.email[0].toUpperCase() : 'U';
+
+    useEffect(() => {
+        const handleProfileUpdate = () => {
+            setLocalAvatar(localStorage.getItem('user_avatar_local'));
+        };
+
+        // Listen to event bus for immediate updates
+        eventBus.on('PROFILE_UPDATED', handleProfileUpdate);
+
+        // Listen to storage for cross-tab updates
+        window.addEventListener('storage', handleProfileUpdate);
+
+        return () => {
+            eventBus.off('PROFILE_UPDATED', handleProfileUpdate);
+            window.removeEventListener('storage', handleProfileUpdate);
+        };
+    }, []);
 
     useEffect(() => {
         let mounted = true;
@@ -32,7 +53,12 @@ export default function NavProfile() {
         let sub = null;
         try {
             const result = SupabaseAdapter.onAuthStateChange((_event, session) => {
-                if (mounted) setUser(session?.user || null);
+                if (mounted) {
+                    setUser(session?.user || null);
+                    if (_event === 'SIGNED_IN') {
+                        setIsOpen(false);
+                    }
+                }
             });
             if (result && result.data && result.data.subscription) {
                 sub = result.data.subscription;
@@ -116,15 +142,15 @@ export default function NavProfile() {
                         className="rounded-circle bg-secondary d-flex align-items-center justify-content-center overflow-hidden border border-2 border-white"
                         style={{ width: '38px', height: '38px' }}
                     >
-                        {user.user_metadata?.avatar_url ? (
+                        {avatarUrl ? (
                             <img
-                                src={user.user_metadata.avatar_url}
+                                src={avatarUrl}
                                 alt="Profile"
                                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                             />
                         ) : (
                             <span className="small text-white text-uppercase fw-bold">
-                                {user.email ? user.email[0] : 'U'}
+                                {initials}
                             </span>
                         )}
                     </div>
