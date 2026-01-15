@@ -21,9 +21,10 @@ import { NotificationAgent } from './agents/focus/NotificationAgent.js';
 import { StorageAgent } from './agents/storage/StorageAgent.js';
 import { AuthAgent } from './agents/auth/AuthAgent.js';
 import NavFocusTimer from './components/NavFocusTimer.jsx';
+import SupabaseAdapter from './agents/adapters/SupabaseAdapter.js';
+import { motion, AnimatePresence } from 'framer-motion';
 import { eventBus } from './agents/core/EventBus.js';
 import { useAgentEvent } from './hooks/useAgentEvent';
-import SupabaseAdapter from './agents/adapters/SupabaseAdapter.js';
 
 function AppContent({ theme, toggleTheme, deferredPrompt, handleInstall }) {
   const focusState = useAgentEvent('FOCUS_STATE_UPDATED', { status: 'idle' });
@@ -141,6 +142,13 @@ function AppContent({ theme, toggleTheme, deferredPrompt, handleInstall }) {
           }}
         />
       )}
+      {/* Ambient Glows */}
+      <div className="ambient-glow">
+        <div className="glow-1"></div>
+        <div className="glow-2"></div>
+        <div className="glow-3"></div>
+      </div>
+
       <nav className="navbar navbar-expand-lg nav-glass sticky-top">
         <div className="container">
           <Link className="navbar-brand fw-bold" to="/" onClick={handleNavClick('/')}>Focus</Link>
@@ -172,7 +180,21 @@ function AppContent({ theme, toggleTheme, deferredPrompt, handleInstall }) {
                   <Link className="nav-link px-3" to="/" onClick={handleNavClick('/')}>Home</Link>
                 </li>
                 <li className="nav-item">
-                  <Link className="nav-link px-3" to="/features" onClick={handleNavClick('/features')}>Features</Link>
+                  <button
+                    className="nav-link px-3 btn btn-link text-decoration-none border-0 bg-transparent"
+                    onClick={() => {
+                      if (location.pathname !== '/') {
+                        navigate('/');
+                        setTimeout(() => {
+                          document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' });
+                        }, 100);
+                      } else {
+                        document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' });
+                      }
+                    }}
+                  >
+                    Features
+                  </button>
                 </li>
                 <li className="nav-item">
                   <Link className="nav-link px-3" to="/about" onClick={handleNavClick('/about')}>About</Link>
@@ -192,18 +214,29 @@ function AppContent({ theme, toggleTheme, deferredPrompt, handleInstall }) {
       </nav>
 
       <div className="main-content">
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/profile" element={<Profile />} />
-          <Route path="/features" element={<Features />} />
-          <Route path="/about" element={<About />} />
-          <Route path="/faq" element={<FAQ />} />
-          <Route path="/testimonials" element={<Testimonials />} />
-          <Route path="/contact" element={!user ? <Contact /> : <Home />} />
-          <Route path="/get-started" element={<GetStarted />} />
-          <Route path="/library" element={<Library />} />
-          <Route path="/writing" element={<Writing />} />
-        </Routes>
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={location.pathname}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.3, ease: "easeInOut" }}
+            className="page-transition-wrapper"
+          >
+            <Routes location={location}>
+              <Route path="/" element={<Home />} />
+              <Route path="/profile" element={<Profile />} />
+              <Route path="/features" element={<Features />} />
+              <Route path="/about" element={<About />} />
+              <Route path="/faq" element={<FAQ />} />
+              <Route path="/testimonials" element={<Testimonials />} />
+              <Route path="/contact" element={!user ? <Contact /> : <Home />} />
+              <Route path="/get-started" element={<GetStarted />} />
+              <Route path="/library" element={<Library />} />
+              <Route path="/writing" element={<Writing />} />
+            </Routes>
+          </motion.div>
+        </AnimatePresence>
       </div>
 
       {!isFocusActive && (

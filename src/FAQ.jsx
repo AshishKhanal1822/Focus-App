@@ -2,11 +2,12 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { HelpCircle, ChevronDown } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import SupabaseAdapter from './agents/adapters/SupabaseAdapter';
 
 const faqs = [
     {
         q: "Is Focus free to use?",
-        a: "Yes! Focus has a powerful free version that includes the Todo List, Reading Mode, and basic Writing tools. We also offer Pro and Team plans for advanced features."
+        a: "Yes! Focus is completely free and includes all features: Todo List, Focus Timer, Reading Library, and Writing tools. All your data syncs to the cloud when you create an account."
     },
     {
         q: "How does the cloud sync work?",
@@ -17,12 +18,22 @@ const faqs = [
         a: "Absolutely! Focus is a Progressive Web App (PWA), which means it's designed to work offline. Your changes will sync once you're back online."
     },
     {
-        q: "How do I upgrade to Pro?",
-        a: "You can upgrade anytime from your account settings or by clicking any of the 'Go Pro' buttons across the application."
+        q: "Do I need to create an account?",
+        a: "No! You can use Focus as a guest with local storage. However, creating a free account enables cloud sync, allowing you to access your data from any device."
     }
 ];
 
 function FAQ() {
+    const [user, setUser] = React.useState(null);
+
+    React.useEffect(() => {
+        SupabaseAdapter.getUser().then(setUser);
+        const { data: { subscription } } = SupabaseAdapter.onAuthStateChange((_event, session) => {
+            setUser(session?.user || null);
+        });
+        return () => subscription.unsubscribe();
+    }, []);
+
     return (
         <div className="container py-5">
             <div className="row justify-content-center">
@@ -63,10 +74,12 @@ function FAQ() {
                         ))}
                     </div>
 
-                    <div className="text-center mt-5">
-                        <p className="opacity-75">Still have questions?</p>
-                        <Link to="/contact" className="btn btn-primary px-4 rounded-pill">Contact Support</Link>
-                    </div>
+                    {!user && (
+                        <div className="text-center mt-5">
+                            <p className="opacity-75">Still have questions?</p>
+                            <Link to="/contact" className="btn btn-primary px-4 rounded-pill">Contact Support</Link>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>

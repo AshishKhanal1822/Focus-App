@@ -200,73 +200,82 @@ const Library = () => {
                 </AnimatePresence>
             </div>
 
-            <div className="mt-5 p-5 glass rounded-4 text-center text-body">
+            <div className="mt-5 p-5 glass rounded-4 text-center text-body position-relative">
                 <h3 className="fw-bold mb-3">Can't find what you're looking for?</h3>
                 <p className="opacity-75 mb-4">Suggest a book or article to be added to our immersive library collection.</p>
-                <div className="d-flex justify-content-center gap-3">
-                    <div className="position-relative">
-                        <AnimatePresence>
-                            {showSuggestModal && (
-                                <>
-                                    <div className="position-fixed top-0 start-0 w-100 h-100" style={{ zIndex: 1040 }} onClick={() => setShowSuggestModal(false)} />
-                                    <motion.div
-                                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                                        className="position-absolute bottom-100 start-50 translate-middle-x mb-2 bg-white p-4 rounded-4 shadow-lg text-start"
-                                        style={{ zIndex: 1050, width: '90vw', maxWidth: '400px' }}
-                                    >
-                                        <div className="d-flex justify-content-between align-items-center mb-4 text-body">
-                                            <h5 className="fw-bold mb-0">Suggest a Resource</h5>
-                                            <button className="btn btn-light rounded-circle p-2 btn-sm" onClick={() => setShowSuggestModal(false)}><X size={16} /></button>
-                                        </div>
-                                        <form onSubmit={handleSuggestSubmit}>
-                                            <div className="mb-2 text-body">
-                                                <label className="form-label small fw-bold">Title</label>
-                                                <input
-                                                    type="text"
-                                                    className="form-control form-control-sm"
-                                                    required
-                                                    value={suggestTitle}
-                                                    onChange={(e) => setSuggestTitle(e.target.value)}
-                                                />
-                                            </div>
-                                            <div className="mb-2 text-body">
-                                                <label className="form-label small fw-bold">Author</label>
-                                                <input
-                                                    type="text"
-                                                    className="form-control form-control-sm"
-                                                    value={suggestAuthor}
-                                                    onChange={(e) => setSuggestAuthor(e.target.value)}
-                                                />
-                                            </div>
-                                            <div className="mb-3 text-body">
-                                                <label className="form-label small fw-bold">Note</label>
-                                                <textarea
-                                                    className="form-control form-control-sm"
-                                                    rows="2"
-                                                    value={suggestNote}
-                                                    onChange={(e) => setSuggestNote(e.target.value)}
-                                                ></textarea>
-                                            </div>
-                                            <button type="submit" className="btn btn-primary w-100 rounded-pill btn-sm" disabled={isSubmitting}>
-                                                {isSubmitting ? 'Submitting...' : 'Submit'}
-                                            </button>
-                                        </form>
-                                    </motion.div>
-                                </>
-                            )}
-                        </AnimatePresence>
-                        <button
-                            className="btn btn-primary px-4 py-2 rounded-3 d-flex align-items-center gap-2"
-                            onClick={() => setShowSuggestModal(!showSuggestModal)}
-                        >
-                            Suggest Resource <ExternalLink size={18} />
-                        </button>
-                    </div>
-
-
+                <div className="d-flex justify-content-center">
+                    <button
+                        className="btn btn-primary px-4 py-2 rounded-3 d-flex align-items-center gap-2 shadow-sm"
+                        onClick={() => setShowSuggestModal(true)}
+                    >
+                        Suggest Resource <ExternalLink size={18} />
+                    </button>
                 </div>
+
+                {createPortal(
+                    <AnimatePresence>
+                        {showSuggestModal && (
+                            <div
+                                className="position-fixed top-0 start-0 w-100 h-100 d-flex justify-content-center align-items-center p-3"
+                                style={{ zIndex: 10000, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}
+                                onClick={() => setShowSuggestModal(false)}
+                            >
+                                <motion.div
+                                    initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                                    exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                                    className="bg-white p-4 rounded-4 shadow-xl text-start"
+                                    style={{ width: '100%', maxWidth: '450px' }}
+                                    onClick={(e) => e.stopPropagation()}
+                                >
+                                    <div className="d-flex justify-content-between align-items-center mb-4 text-body">
+                                        <h5 className="fw-bold mb-0">Suggest a Resource</h5>
+                                        <button className="btn btn-light rounded-circle p-2 btn-sm" onClick={() => setShowSuggestModal(false)}>
+                                            <X size={16} />
+                                        </button>
+                                    </div>
+                                    <form onSubmit={handleSuggestSubmit}>
+                                        <div className="mb-3 text-body">
+                                            <label className="form-label small fw-bold">Title</label>
+                                            <input
+                                                type="text"
+                                                className="form-control"
+                                                required
+                                                placeholder="Book or Article title"
+                                                value={suggestTitle}
+                                                onChange={(e) => setSuggestTitle(e.target.value)}
+                                            />
+                                        </div>
+                                        <div className="mb-3 text-body">
+                                            <label className="form-label small fw-bold">Author</label>
+                                            <input
+                                                type="text"
+                                                className="form-control"
+                                                placeholder="Name of author"
+                                                value={suggestAuthor}
+                                                onChange={(e) => setSuggestAuthor(e.target.value)}
+                                            />
+                                        </div>
+                                        <div className="mb-4 text-body">
+                                            <label className="form-label small fw-bold">Note</label>
+                                            <textarea
+                                                className="form-control"
+                                                rows="3"
+                                                placeholder="Why should we add this?"
+                                                value={suggestNote}
+                                                onChange={(e) => setSuggestNote(e.target.value)}
+                                            ></textarea>
+                                        </div>
+                                        <button type="submit" className="btn btn-primary w-100 rounded-pill py-2 fw-bold" disabled={isSubmitting}>
+                                            {isSubmitting ? 'Submitting...' : 'Submit Suggestion'}
+                                        </button>
+                                    </form>
+                                </motion.div>
+                            </div>
+                        )}
+                    </AnimatePresence>,
+                    document.body
+                )}
             </div>
 
             {/* Reader Modal */}

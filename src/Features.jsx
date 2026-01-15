@@ -2,46 +2,40 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Zap, Shield, Smartphone, Globe, MessageSquare, Star } from 'lucide-react';
 
-const features = [
-    {
-        icon: <Zap className="text-warning" />,
-        title: 'Lightning Fast',
-        description: 'Experience instant response times and smooth transitions throughout the app.',
-        buttonText: 'Learn Speed'
-    },
-    {
-        icon: <Shield className="text-success" />,
-        title: 'Secure by Design',
-        description: 'Your data is encrypted and stored safely, ensuring your privacy is always protected.',
-        buttonText: 'View Security'
-    },
-    {
-        icon: <Smartphone className="text-info" />,
-        title: 'Mobile First',
-        description: 'Access your tasks and notes from any device with our fully responsive design.',
-        buttonText: 'Try Mobile'
-    },
-    {
-        icon: <Globe className="text-primary" />,
-        title: 'Global Sync',
-        description: 'Keep your workspace synced across all your browsers and machines instantly.',
-        buttonText: 'Explore Sync'
-    },
-    {
-        icon: <MessageSquare className="text-secondary" />,
-        title: 'Collaborative',
-        description: 'Share your focus boards with team members and work together seamlessly.',
-        buttonText: 'Start Team'
-    },
-    {
-        icon: <Star className="text-danger" />,
-        title: 'Premium Quality',
-        description: 'Enjoy a hand-crafted interface built for professional productivity.',
-        buttonText: 'Go Premium'
-    }
-];
-
 function Features() {
+    const features = [
+        {
+            icon: <Zap className="text-warning" />,
+            title: 'Lightning Fast',
+            description: 'Experience instant response times and smooth transitions throughout the app.'
+        },
+        {
+            icon: <Shield className="text-success" />,
+            title: 'Secure by Design',
+            description: 'Your data is encrypted and stored safely, ensuring your privacy is always protected.'
+        },
+        {
+            icon: <Smartphone className="text-info" />,
+            title: 'Mobile First',
+            description: 'Access your tasks and notes from any device with our fully responsive design.'
+        },
+        {
+            icon: <Globe className="text-primary" />,
+            title: 'Global Sync',
+            description: 'Keep your workspace synced across all your browsers and machines instantly.'
+        },
+        {
+            icon: <MessageSquare className="text-secondary" />,
+            title: 'Collaborative',
+            description: 'Share your focus boards with team members and work together seamlessly.'
+        },
+        {
+            icon: <Star className="text-danger" />,
+            title: 'Premium Quality',
+            description: 'Enjoy a hand-crafted interface built for professional productivity.'
+        }
+    ];
+
     return (
         <div className="container py-5">
             <div className="text-center mb-5">
@@ -65,18 +59,14 @@ function Features() {
                         whileInView={{ opacity: 1, scale: 1 }}
                         transition={{ duration: 0.3, delay: index * 0.1 }}
                     >
-                        <div
-                            className="card glass h-100 p-4 border-0 hover-lift cursor-pointer"
-                            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-                        >
-                            <div className="feature-icon mb-3">
-                                {feature.icon}
+                        <div className="card glass h-100 p-4 border-0 hover-lift text-center">
+                            <div className="feature-icon mb-3 d-flex justify-content-center">
+                                <div className="p-3 rounded-circle bg-opacity-10" style={{ background: 'rgba(99, 102, 241, 0.1)' }}>
+                                    {React.cloneElement(feature.icon, { size: 32 })}
+                                </div>
                             </div>
                             <h4 className="fw-bold mb-3">{feature.title}</h4>
-                            <p className="opacity-75 mb-4 small">{feature.description}</p>
-                            <button className="btn btn-outline-primary mt-auto rounded-3 w-100">
-                                {feature.buttonText}
-                            </button>
+                            <p className="opacity-75 mb-0">{feature.description}</p>
                         </div>
                     </motion.div>
                 ))}

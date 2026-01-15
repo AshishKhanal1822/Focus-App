@@ -77,23 +77,16 @@ function Home() {
                 </motion.p>
 
                 <motion.div variants={itemVariants} className="d-flex justify-content-center gap-3">
-                    {!loading && !user ? (
+                    {!loading && !user && (
                         <button
-                            className="btn btn-primary btn-lg shadow-lg px-5"
+                            className="btn btn-primary btn-lg shadow-lg px-5 hover-scale"
                             onClick={() => eventBus.emit('SHOW_LOGIN')}
                         >
                             Get Started <ArrowRight size={18} className="ms-2" />
                         </button>
-                    ) : (
-                        <button
-                            className="btn btn-primary btn-lg shadow-lg px-5"
-                            onClick={() => navigate('/library')}
-                        >
-                            Go to Dashboard <ArrowRight size={18} className="ms-2" />
-                        </button>
                     )}
                     <button
-                        className="btn btn-light btn-lg px-5 shadow-sm border-0 glass"
+                        className="btn btn-outline-primary btn-lg px-5 shadow-sm hover-scale"
                         onClick={() => {
                             document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' });
                         }}

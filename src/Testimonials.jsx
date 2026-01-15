@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Quote, Star } from 'lucide-react';
+import { Quote, Star, Plus, X } from 'lucide-react';
+import SupabaseAdapter from './agents/adapters/SupabaseAdapter';
 
 const initialTestimonials = [
     {
@@ -46,7 +47,83 @@ const moreTestimonials = [
 
 function Testimonials() {
     const [showAll, setShowAll] = useState(false);
-    const testimonials = showAll ? [...initialTestimonials, ...moreTestimonials] : initialTestimonials;
+    const [showModal, setShowModal] = useState(false);
+    const [user, setUser] = useState(null);
+    const [cloudReviews, setCloudReviews] = useState([]);
+    const [formData, setFormData] = useState({ name: '', role: '', review_text: '', rating: 5 });
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [submitMessage, setSubmitMessage] = useState('');
+
+    useEffect(() => {
+        SupabaseAdapter.getUser().then(setUser);
+        loadCloudReviews();
+
+        const { data: { subscription } } = SupabaseAdapter.onAuthStateChange((_event, session) => {
+            setUser(session?.user || null);
+        });
+        return () => subscription.unsubscribe();
+    }, []);
+
+    const loadCloudReviews = async () => {
+        try {
+            const client = SupabaseAdapter.getClient();
+            const { data } = await client
+                .from('reviews')
+                .select('*')
+                .eq('is_approved', true)
+                .order('created_at', { ascending: false });
+
+            if (data) {
+                setCloudReviews(data.map(r => ({
+                    name: r.name,
+                    role: r.role,
+                    text: r.review_text,
+                    rating: r.rating
+                })));
+            }
+        } catch (e) {
+            console.error('Failed to load reviews:', e);
+        }
+    };
+
+    const handleSubmitReview = async (e) => {
+        e.preventDefault();
+        if (!user) {
+            setSubmitMessage('Please login to submit a review');
+            return;
+        }
+
+        setIsSubmitting(true);
+        try {
+            const client = SupabaseAdapter.getClient();
+            const { error } = await client
+                .from('reviews')
+                .insert([{
+                    user_id: user.id,
+                    name: formData.name,
+                    role: formData.role,
+                    review_text: formData.review_text,
+                    rating: formData.rating
+                }]);
+
+            if (error) throw error;
+
+            setSubmitMessage('Thank you! Your review is pending approval.');
+            setFormData({ name: '', role: '', review_text: '', rating: 5 });
+            setTimeout(() => {
+                setShowModal(false);
+                setSubmitMessage('');
+            }, 2000);
+        } catch (error) {
+            console.error('Review submission failed:', error);
+            setSubmitMessage('Failed to submit review. Please try again.');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const allTestimonials = [...cloudReviews, ...initialTestimonials, ...moreTestimonials];
+    const testimonials = showAll ? allTestimonials : allTestimonials.slice(0, 3);
 
     return (
         <div className="container py-5">
@@ -84,8 +161,15 @@ function Testimonials() {
                 </AnimatePresence>
             </div>
 
-            <div className="text-center mt-5">
-                {!showAll && (
+            <div className="text-center mt-5 d-flex gap-3 justify-content-center">
+                <button
+                    className="btn btn-primary px-4 rounded-pill d-flex align-items-center gap-2"
+                    onClick={() => setShowModal(true)}
+                >
+                    <Plus size={18} /> Write a Review
+                </button>
+
+                {!showAll && allTestimonials.length > 3 && (
                     <button
                         className="btn btn-outline-primary px-4 rounded-pill"
                         onClick={() => setShowAll(true)}
@@ -102,6 +186,77 @@ function Testimonials() {
                     </button>
                 )}
             </div>
+
+            {/* Review Modal */}
+            {showModal && (
+                <div className="modal show d-block" style={{ background: 'rgba(0,0,0,0.5)' }} onClick={() => setShowModal(false)}>
+                    <div className="modal-dialog modal-dialog-centered" onClick={(e) => e.stopPropagation()}>
+                        <div className="modal-content glass border-0">
+                            <div className="modal-header border-0">
+                                <h5 className="modal-title fw-bold">Write Your Review</h5>
+                                <button type="button" className="btn-close" onClick={() => setShowModal(false)}></button>
+                            </div>
+                            <div className="modal-body">
+                                <form onSubmit={handleSubmitReview}>
+                                    <div className="mb-3">
+                                        <label className="form-label fw-bold">Your Name</label>
+                                        <input
+                                            type="text"
+                                            className="form-control"
+                                            value={formData.name}
+                                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                            required
+                                        />
+                                    </div>
+                                    <div className="mb-3">
+                                        <label className="form-label fw-bold">Your Role/Title (Optional)</label>
+                                        <input
+                                            type="text"
+                                            className="form-control"
+                                            value={formData.role}
+                                            onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                                            placeholder="e.g., Student, Developer"
+                                        />
+                                    </div>
+                                    <div className="mb-3">
+                                        <label className="form-label fw-bold">Your Review</label>
+                                        <textarea
+                                            className="form-control"
+                                            rows="4"
+                                            value={formData.review_text}
+                                            onChange={(e) => setFormData({ ...formData, review_text: e.target.value })}
+                                            required
+                                        ></textarea>
+                                    </div>
+                                    <div className="mb-3">
+                                        <label className="form-label fw-bold">Rating</label>
+                                        <div className="d-flex gap-2">
+                                            {[1, 2, 3, 4, 5].map((star) => (
+                                                <Star
+                                                    key={star}
+                                                    size={32}
+                                                    className="cursor-pointer"
+                                                    fill={star <= formData.rating ? '#fbbf24' : 'none'}
+                                                    color="#fbbf24"
+                                                    onClick={() => setFormData({ ...formData, rating: star })}
+                                                />
+                                            ))}
+                                        </div>
+                                    </div>
+                                    {submitMessage && (
+                                        <div className={`alert ${submitMessage.includes('Thank') ? 'alert-success' : 'alert-info'}`}>
+                                            {submitMessage}
+                                        </div>
+                                    )}
+                                    <button type="submit" className="btn btn-primary w-100" disabled={isSubmitting}>
+                                        {isSubmitting ? 'Submitting...' : 'Submit Review'}
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
