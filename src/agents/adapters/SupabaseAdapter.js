@@ -77,6 +77,16 @@ class SupabaseAdapter {
         return await this.supabase.auth.signInWithPassword({ email, password });
     }
 
+    async signInWithGoogle() {
+        if (!this.supabase) return { error: 'Supabase not configured' };
+        return await this.supabase.auth.signInWithOAuth({
+            provider: 'google',
+            options: {
+                redirectTo: window.location.origin,
+            },
+        });
+    }
+
     async signOut() {
         this.cachedUser = null;
         localStorage.removeItem('supabase_user_cache');

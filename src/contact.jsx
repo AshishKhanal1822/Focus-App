@@ -53,12 +53,12 @@ function Contact() {
         try {
             // Check if user is logged in
             const user = await SupabaseAdapter.getUser();
-            
+
             // Get the appropriate client
             // If user is logged in, use SupabaseAdapter's client (has proper session)
             // Otherwise use the original supabase client (works for anonymous)
             let clientToUse = supabase;
-            
+
             if (user) {
                 // User is logged in - try to use SupabaseAdapter's client
                 // Use the helper method to safely get the client
@@ -117,10 +117,10 @@ function Contact() {
             }
 
             // Insert the message
-            const { data, error } = await clientToUse
+            // We do not use .select() here to avoid needing SELECT permissions on the table
+            const { error } = await clientToUse
                 .from("messages")
-                .insert([messageData])
-                .select();
+                .insert([messageData]);
 
             if (error) {
                 console.error("Contact form error:", error);
@@ -132,7 +132,7 @@ function Contact() {
                 });
                 console.error("User logged in:", !!user);
                 console.error("Client type:", clientToUse === SupabaseAdapter.getClient() ? "SupabaseAdapter" : "supabaseClient");
-                
+
                 setStatus("");
                 alert(`Failed to send message: ${error.message || 'Please try again.'}`);
             } else {
