@@ -110,17 +110,54 @@ export default function ProfilePhoto({ user, onUploadSuccess }) {
         if (!capturedImage) return;
         setLoading(true);
 
-        // 1. ALWAYS save locally first (Fallback for network blocks)
-        localStorage.setItem('user_avatar_local', capturedImage);
+        try {
+            // Convert base64 to blob
+            const response = await fetch(capturedImage);
+            const blob = await response.blob();
 
-        // 2. Try to sync to cloud (it might fail, but we don't care as much now)
-        console.log("Saving image to profile...");
-        await SupabaseAdapter.updateProfile({ avatar_url: capturedImage });
+            // Create a unique filename
+            const fileName = `${user.id}/avatar-${Date.now()}.jpg`;
 
-        setLoading(false);
-        setCapturedImage(null);
-        eventBus.emit('PROFILE_UPDATED');
-        if (onUploadSuccess) onUploadSuccess();
+            // Upload to Supabase Storage
+            const client = SupabaseAdapter.getClient();
+            const { data: uploadData, error: uploadError } = await client.storage
+                .from('avatars')
+                .upload(fileName, blob, {
+                    contentType: 'image/jpeg',
+                    upsert: true
+                });
+
+            if (uploadError) {
+                throw uploadError;
+            }
+
+            // Get public URL
+            const { data: urlData } = client.storage
+                .from('avatars')
+                .getPublicUrl(fileName);
+
+            const publicUrl = urlData.publicUrl;
+
+            // Save URL to profile
+            await SupabaseAdapter.updateProfile({ avatar_url: publicUrl });
+
+            // Save locally as backup
+            localStorage.setItem('user_avatar_local', publicUrl);
+
+            setLoading(false);
+            setCapturedImage(null);
+            eventBus.emit('PROFILE_UPDATED');
+            if (onUploadSuccess) onUploadSuccess();
+        } catch (error) {
+            console.error("Failed to upload avatar:", error);
+
+            // Fallback: Save locally only
+            localStorage.setItem('user_avatar_local', capturedImage);
+            setLoading(false);
+            setCapturedImage(null);
+            eventBus.emit('PROFILE_UPDATED');
+            if (onUploadSuccess) onUploadSuccess();
+        }
     };
 
     return (

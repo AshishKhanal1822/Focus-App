@@ -13,33 +13,130 @@ const prompts = [
 
 function Writing() {
     const [text, setText] = useState('');
+    const [title, setTitle] = useState('');
     const [wordCount, setWordCount] = useState(0);
     const [isFullScreen, setIsFullScreen] = useState(false);
     const [showPrompts, setShowPrompts] = useState(false);
     const [savedStatus, setSavedStatus] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
+    const [lastSaved, setLastSaved] = useState(null);
+    const [isCloudSynced, setIsCloudSynced] = useState(false);
 
+    // Load from Cloud (Supabase) on mount
     useEffect(() => {
         const words = text.trim().split(/\s+/).filter(word => word.length > 0).length;
         setWordCount(words);
     }, [text]);
 
     useEffect(() => {
-        const savedText = localStorage.getItem('focus_writing_draft');
-        if (savedText) {
-            setText(savedText);
-        }
+        const loadContent = async () => {
+            setIsLoading(true);
+            try {
+                // First check local backup
+                const localDraft = localStorage.getItem('focus_writing_draft');
+                const localTitle = localStorage.getItem('focus_writing_title');
+                if (localDraft) setText(localDraft);
+                if (localTitle) setTitle(localTitle);
+
+                // Then try to fetch from cloud
+                const user = await import('./agents/adapters/SupabaseAdapter.js').then(m => m.default.getUser());
+                if (user) {
+                    setIsCloudSynced(true);
+                    const client = await import('./agents/adapters/SupabaseAdapter.js').then(m => m.default.getClient());
+                    const { data, error } = await client
+                        .from('writings')
+                        .select('content, title, updated_at')
+                        .eq('user_id', user.id)
+                        .order('updated_at', { ascending: false })
+                        .limit(1)
+                        .single();
+
+                    if (data) {
+                        if (data.content) setText(data.content);
+                        if (data.title) setTitle(data.title);
+                        setLastSaved(new Date(data.updated_at));
+                    }
+                } else {
+                    setIsCloudSynced(false);
+                }
+            } catch (e) {
+                console.error("Error loading writing:", e);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        loadContent();
     }, []);
 
-    const handleSave = () => {
+    const handleSave = async () => {
+        setIsLoading(true);
+        setSavedStatus('Saving...');
+
+        // 1. Save Local (Backup)
         localStorage.setItem('focus_writing_draft', text);
-        setSavedStatus('Saved!');
-        setTimeout(() => setSavedStatus(''), 2000);
+        localStorage.setItem('focus_writing_title', title);
+
+        try {
+            // 2. Save Cloud if logged in
+            const SupabaseAdapter = await import('./agents/adapters/SupabaseAdapter.js').then(m => m.default);
+            const user = await SupabaseAdapter.getUser();
+
+            if (user) {
+                const client = SupabaseAdapter.getClient();
+
+                // Upsert strategy
+                const { data: existing } = await client
+                    .from('writings')
+                    .select('id')
+                    .eq('user_id', user.id)
+                    .limit(1)
+                    .single();
+
+                let error;
+                if (existing) {
+                    const result = await client
+                        .from('writings')
+                        .update({ content: text, title: title, updated_at: new Date() })
+                        .eq('id', existing.id);
+                    error = result.error;
+                } else {
+                    const result = await client
+                        .from('writings')
+                        .insert([{ user_id: user.id, content: text, title: title }]);
+                    error = result.error;
+                }
+
+                if (error) throw error;
+                setLastSaved(new Date());
+                setSavedStatus('Saved to Cloud!');
+            } else {
+                setSavedStatus('Saved Locally');
+            }
+        } catch (e) {
+            console.error("Cloud save failed:", e);
+            setSavedStatus('Saved Locally (Cloud Failed)');
+        } finally {
+            setIsLoading(false);
+            setTimeout(() => setSavedStatus(''), 3000);
+        }
     };
 
-    const handleClear = () => {
+    const handleClear = async () => {
         if (window.confirm('Are you sure you want to clear your writing? This cannot be undone.')) {
             setText('');
+            setTitle('');
             localStorage.removeItem('focus_writing_draft');
+            localStorage.removeItem('focus_writing_title');
+
+            // Also clear cloud?
+            try {
+                const SupabaseAdapter = await import('./agents/adapters/SupabaseAdapter.js').then(m => m.default);
+                const user = await SupabaseAdapter.getUser();
+                if (user) {
+                    const client = SupabaseAdapter.getClient();
+                    await client.from('writings').delete().eq('user_id', user.id);
+                }
+            } catch (e) { console.warn("Cloud clear failed", e); }
         }
     };
 
@@ -71,9 +168,12 @@ function Writing() {
                         className="d-flex justify-content-between align-items-center mb-4"
                     >
                         <div>
-                            <h1 className="display-5 fw-bold d-flex align-items-center gap-3">
-                                <PenTool className="text-primary" /> Open Space
-                            </h1>
+                            <div className="d-flex align-items-center gap-3 mb-2">
+                                <h1 className="display-5 fw-bold d-flex align-items-center gap-3 mb-0">
+                                    <PenTool className="text-primary" /> Open Space
+                                </h1>
+                                {isCloudSynced && <span className="badge bg-primary bg-opacity-25 text-primary">Cloud Synced</span>}
+                            </div>
                             <p className="opacity-75">A distraction-free zone for your thoughts.</p>
                         </div>
                         <div className="d-flex gap-2">
@@ -123,7 +223,15 @@ function Writing() {
             >
                 {/* Toolbar */}
                 <div className="p-3 border-bottom d-flex justify-content-between align-items-center bg-white bg-opacity-50">
-                    <div className="d-flex gap-3 align-items-center small text-muted">
+                    <div className="d-flex gap-3 align-items-center small text-muted flex-grow-1">
+                        <input
+                            type="text"
+                            className="form-control form-control-sm border-0 bg-transparent shadow-none"
+                            style={{ maxWidth: '200px', outline: 'none' }}
+                            placeholder="Title"
+                            value={title}
+                            onChange={(e) => setTitle(e.target.value)}
+                        />
                         <span className="fw-bold text-primary">{wordCount} words</span>
                         {savedStatus && <span className="text-success d-flex align-items-center gap-1"><Check size={14} /> {savedStatus}</span>}
                     </div>

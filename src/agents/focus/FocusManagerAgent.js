@@ -29,6 +29,7 @@ export class FocusManagerAgent extends BaseAgent {
     /** Start a new focus session */
     startSession({ durationMinutes = this.defaultDuration } = {}) {
         this.clearTimer();
+        this.currentDuration = durationMinutes; // Track current session length
         const totalMs = durationMinutes * 60 * 1000;
         const endTime = Date.now() + totalMs;
         // We emit update immediately; StorageAgent handles persistence
@@ -37,10 +38,14 @@ export class FocusManagerAgent extends BaseAgent {
     }
 
     /** Resume a persisted session */
-    resumeSession({ endTime, remainingMs }) {
+    resumeSession({ endTime, remainingMs, durationMinutes }) {
         const now = Date.now();
         const msLeft = Math.max(endTime - now, 0);
         if (msLeft <= 0) return; // already expired
+
+        // Try to recover duration, otherwise guess based on remaining (not perfect but safe)
+        this.currentDuration = durationMinutes || Math.ceil(remainingMs / 60000);
+
         this.emit('FOCUS_STATE_UPDATED', { status: 'running', remainingMs: msLeft, endTime });
         this.timerId = setInterval(() => this.tick(endTime), 1000);
     }
@@ -59,7 +64,7 @@ export class FocusManagerAgent extends BaseAgent {
         if (remainingMs === 0) {
             this.clearTimer();
             // Pass stats for the history log
-            this.emit('FOCUS_COMPLETED', { duration: this.defaultDuration, completedAt: new Date() });
+            this.emit('FOCUS_COMPLETED', { duration: this.currentDuration || this.defaultDuration, completedAt: new Date() });
         }
     }
 

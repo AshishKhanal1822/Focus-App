@@ -1,36 +1,98 @@
 import React, { useState, useEffect } from 'react';
+import SupabaseAdapter from './agents/adapters/SupabaseAdapter.js';
 
 function Todo() {
-    const [tasks, setTasks] = useState(() => {
-        const savedTasks = localStorage.getItem('tasks');
-        return savedTasks ? JSON.parse(savedTasks) : [];
-    });
+    const [tasks, setTasks] = useState([]);
     const [input, setInput] = useState('');
+    const [isCloud, setIsCloud] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
 
+    // Initial Load
     useEffect(() => {
-        localStorage.setItem('tasks', JSON.stringify(tasks));
-    }, [tasks]);
+        const loadTasks = async () => {
+            setIsLoading(true);
+            const user = await SupabaseAdapter.getUser();
 
-    const addTask = (e) => {
+            if (user) {
+                setIsCloud(true);
+                const { data } = await SupabaseAdapter.getClient()
+                    .from('tasks')
+                    .select('*')
+                    .eq('user_id', user.id)
+                    .order('created_at', { ascending: true });
+
+                if (data) setTasks(data);
+            } else {
+                // Load from LocalStorage
+                const savedTasks = localStorage.getItem('tasks');
+                if (savedTasks) setTasks(JSON.parse(savedTasks));
+            }
+            setIsLoading(false);
+        };
+        loadTasks();
+    }, []);
+
+    // Save to LocalStorage (only if guest)
+    useEffect(() => {
+        if (!isCloud && !isLoading) {
+            localStorage.setItem('tasks', JSON.stringify(tasks));
+        }
+    }, [tasks, isCloud, isLoading]);
+
+    const addTask = async (e) => {
         e.preventDefault();
         if (!input.trim()) return;
-        setTasks([...tasks, { id: Date.now(), text: input, completed: false }]);
+
+        if (isCloud) {
+            const user = await SupabaseAdapter.getUser();
+            const { data, error } = await SupabaseAdapter.getClient()
+                .from('tasks')
+                .insert([{ user_id: user.id, text: input, completed: false }])
+                .select()
+                .single();
+
+            if (data) {
+                setTasks([...tasks, data]);
+            }
+        } else {
+            setTasks([...tasks, { id: Date.now(), text: input, completed: false }]);
+        }
         setInput('');
     };
 
-    const toggleTask = (id) => {
+    const toggleTask = async (id, currentStatus) => {
+        // Optimistic update
         setTasks(tasks.map(task =>
             task.id === id ? { ...task, completed: !task.completed } : task
         ));
+
+        if (isCloud) {
+            await SupabaseAdapter.getClient()
+                .from('tasks')
+                .update({ completed: !currentStatus })
+                .eq('id', id);
+        }
     };
 
-    const deleteTask = (id) => {
+    const deleteTask = async (id) => {
+        // Optimistic update
         setTasks(tasks.filter(task => task.id !== id));
+
+        if (isCloud) {
+            await SupabaseAdapter.getClient()
+                .from('tasks')
+                .delete()
+                .eq('id', id);
+        }
     };
 
     return (
         <div className="todo-container glass p-4 mt-5 animate-fade-in">
-            <h3 className="mb-4 fw-bold">Daily Tasks</h3>
+            <div className="d-flex justify-content-between align-items-center mb-4">
+                <h3 className="mb-0 fw-bold">Daily Tasks</h3>
+                {isCloud && <span className="badge bg-primary bg-opacity-25 text-primary small">Cloud Synced</span>}
+            </div>
+
             <form onSubmit={addTask} className="d-flex gap-2 mb-4">
                 <input
                     type="text"
@@ -39,12 +101,17 @@ function Todo() {
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid var(--glass-border)', color: 'inherit' }}
+                    disabled={isLoading}
                 />
-                <button type="submit" className="btn btn-primary">Add</button>
+                <button type="submit" className="btn btn-primary" disabled={isLoading}>
+                    {isLoading ? '...' : 'Add'}
+                </button>
             </form>
             <div className="task-list d-flex flex-column gap-3">
                 {tasks.length === 0 ? (
-                    <p className="opacity-50 text-center py-4">No tasks yet. Start your day!</p>
+                    <p className="opacity-50 text-center py-4">
+                        {isLoading ? 'Loading...' : 'No tasks yet. Start your day!'}
+                    </p>
                 ) : (
                     tasks.map(task => (
                         <div key={task.id} className="task-item d-flex align-items-center justify-content-between glass p-3"
@@ -53,7 +120,7 @@ function Todo() {
                                 <input
                                     type="checkbox"
                                     checked={task.completed}
-                                    onChange={() => toggleTask(task.id)}
+                                    onChange={() => toggleTask(task.id, task.completed)}
                                     className="form-check-input"
                                     style={{ cursor: 'pointer', transform: 'scale(1.2)' }}
                                 />
