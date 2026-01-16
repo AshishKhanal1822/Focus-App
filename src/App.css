@@ -22,13 +22,27 @@
 }
 
 [data-theme='dark'] {
-    --bg-color: #030712;
-    --text-color: #ffffff;
-    --text-muted: #94a3b8;
-    --card-bg: rgba(15, 23, 42, 0.6);
-    --nav-bg: rgba(3, 7, 18, 0.8);
-    --glass-border: rgba(255, 255, 255, 0.1);
-    --shadow-premium: 0 10px 40px -10px rgba(0, 0, 0, 0.8);
+    --bg-color: #0f172a;
+    /* Slate 900 - much softer than pure black */
+    --text-color: #cbd5e1;
+    /* Slate 300 - comfortable off-white */
+    --text-muted: #64748b;
+    /* Slate 500 */
+    --card-bg: rgba(30, 41, 59, 0.7);
+    /* Slate 800 */
+    --nav-bg: rgba(15, 23, 42, 0.95);
+    --glass-border: rgba(255, 255, 255, 0.05);
+    --shadow-premium: 0 10px 40px -10px rgba(0, 0, 0, 0.5);
+
+    /* Muted, Sleep-Friendly Tones */
+    --primary: #5c6bc0;
+    /* Soft Indigo */
+    --primary-light: #7986cb;
+    --primary-dark: #3f51b5;
+    --secondary: #065f46;
+    /* Deeper Emerald */
+    --accent: #92400e;
+    /* Deeper Amber */
 }
 
 /* Ambient Background Glows */
@@ -57,8 +71,8 @@
 [data-theme='dark'] .glow-1,
 [data-theme='dark'] .glow-2,
 [data-theme='dark'] .glow-3 {
-    opacity: 0.1;
-    filter: blur(120px);
+    opacity: 0.06;
+    filter: blur(160px);
 }
 
 .glow-1 {
@@ -139,7 +153,7 @@
 [data-theme='dark'] .text-muted,
 [data-theme='dark'] .opacity-75,
 [data-theme='dark'] .opacity-50 {
-    color: #ffffff !important;
+    color: #cbd5e1 !important;
     opacity: 1 !important;
 }
 
@@ -163,11 +177,11 @@
 }
 
 [data-theme='dark'] .text-dark {
-    color: #ffffff !important;
+    color: #cbd5e1 !important;
 }
 
 [data-theme='dark'] .text-body {
-    color: #e2e8f0 !important;
+    color: #94a3b8 !important;
 }
 
 /* Ensure inputs in dark mode are readable */
@@ -176,8 +190,8 @@
 [data-theme='dark'] select,
 [data-theme='dark'] .form-control,
 [data-theme='dark'] .form-select {
-    background-color: rgba(17, 24, 39, 0.8) !important;
-    color: #ffffff !important;
+    background-color: rgba(15, 23, 42, 0.9) !important;
+    color: #cbd5e1 !important;
     border-color: rgba(255, 255, 255, 0.2) !important;
 }
 
@@ -254,7 +268,7 @@ body {
 }
 
 [data-theme='dark'] .nav-glass {
-    background: rgba(3, 7, 18, 0.95) !important;
+    background: rgba(15, 23, 42, 0.98) !important;
 }
 
 .hero-gradient {
@@ -611,13 +625,13 @@ footer {
 }
 
 [data-theme='dark'] .btn-outline-primary {
-    color: #818cf8 !important;
-    border-color: #818cf8 !important;
+    color: var(--primary-light) !important;
+    border-color: var(--primary-light) !important;
 }
 
 [data-theme='dark'] .btn-outline-primary:hover {
-    background: #818cf8 !important;
-    color: #030712 !important;
+    background: var(--primary-light) !important;
+    color: #0f172a !important;
 }
 
 /* Enhanced Glass Effect */
