@@ -37,7 +37,7 @@ function Features() {
     ];
 
     return (
-        <div className="container py-5">
+        <div className="container py-5 mt-5">
             <div className="text-center mb-5">
                 <motion.h2
                     initial={{ opacity: 0, y: 20 }}

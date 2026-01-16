@@ -4,10 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { eventBus } from './agents/core/EventBus';
 import Todo from './Todo';
 import Features from './Features';
-import About from './About';
 import Testimonials from './Testimonials';
-import FAQ from './FAQ';
-import Library from './Library';
 import { motion } from 'framer-motion';
 import { ArrowRight, PenTool, BookOpen, CheckCircle2, Sparkles } from 'lucide-react';
 
@@ -87,9 +84,7 @@ function Home() {
                     )}
                     <button
                         className="btn btn-outline-primary btn-lg px-5 shadow-sm hover-scale"
-                        onClick={() => {
-                            document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' });
-                        }}
+                        onClick={() => navigate('/features')}
                     >
                         Explore
                     </button>
@@ -189,16 +184,8 @@ function Home() {
                 <Features />
             </section>
 
-            <section id="about" className="mt-5 py-5">
-                <About />
-            </section>
-
             <section id="testimonials" className="mt-5 py-5">
                 <Testimonials />
-            </section>
-
-            <section id="faq" className="mt-5 py-5">
-                <FAQ />
             </section>
         </div>
     );

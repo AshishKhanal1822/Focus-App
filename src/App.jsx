@@ -124,6 +124,11 @@ function AppContent({ theme, toggleTheme, deferredPrompt, handleInstall }) {
   }, []);
 
   const handleNavClick = (path) => (e) => {
+    // Clear hash for non-features navigation to reset indicators
+    if (location.hash) {
+      navigate(path, { replace: true });
+    }
+
     if (location.pathname === path) {
       e.preventDefault();
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -180,34 +185,26 @@ function AppContent({ theme, toggleTheme, deferredPrompt, handleInstall }) {
             {!isFocusActive && (
               <ul className="navbar-nav ms-auto">
                 <li className="nav-item">
-                  <Link className="nav-link px-3" to="/" onClick={handleNavClick('/')}>Home</Link>
+                  <Link className={`nav-link px-3 ${location.pathname === '/' && !location.hash ? 'active' : ''}`} to="/" onClick={handleNavClick('/')}>Home</Link>
                 </li>
                 <li className="nav-item">
-                  <button
-                    className="nav-link px-3 btn btn-link text-decoration-none border-0 bg-transparent"
-                    onClick={() => {
-                      if (location.pathname !== '/') {
-                        navigate('/');
-                        setTimeout(() => {
-                          document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' });
-                        }, 100);
-                      } else {
-                        document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' });
-                      }
-                    }}
+                  <Link
+                    className={`nav-link px-3 ${location.pathname === '/features' ? 'active' : ''}`}
+                    to="/features"
+                    onClick={handleNavClick('/features')}
                   >
                     Features
-                  </button>
+                  </Link>
                 </li>
                 <li className="nav-item">
-                  <Link className="nav-link px-3" to="/about" onClick={handleNavClick('/about')}>About</Link>
+                  <Link className={`nav-link px-3 ${location.pathname === '/about' ? 'active' : ''}`} to="/about" onClick={handleNavClick('/about')}>About</Link>
                 </li>
                 <li className="nav-item">
-                  <Link className="nav-link px-3" to="/faq" onClick={handleNavClick('/faq')}>FAQ</Link>
+                  <Link className={`nav-link px-3 ${location.pathname === '/faq' ? 'active' : ''}`} to="/faq" onClick={handleNavClick('/faq')}>FAQ</Link>
                 </li>
                 {!user && (
                   <li className="nav-item">
-                    <Link className="nav-link px-3" to="/contact" onClick={handleNavClick('/contact')}>Contact</Link>
+                    <Link className={`nav-link px-3 ${location.pathname === '/contact' ? 'active' : ''}`} to="/contact" onClick={handleNavClick('/contact')}>Contact</Link>
                   </li>
                 )}
               </ul>

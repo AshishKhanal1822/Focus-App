@@ -35,7 +35,7 @@ function FAQ() {
     }, []);
 
     return (
-        <div className="container py-5">
+        <div className="container py-5 mt-5">
             <div className="row justify-content-center">
                 <div className="col-lg-8">
                     <div className="text-center mb-5">
