@@ -146,7 +146,6 @@ function AppContent({ theme, toggleTheme, deferredPrompt, handleInstall }) {
       <div className="ambient-glow">
         <div className="glow-1"></div>
         <div className="glow-2"></div>
-        <div className="glow-3"></div>
       </div>
 
       <nav className="navbar navbar-expand-lg nav-glass sticky-top">

@@ -80,16 +80,6 @@
     animation-delay: -5s;
 }
 
-.glow-3 {
-    width: 30vw;
-    height: 30vw;
-    background: #f59e0b;
-    top: 40%;
-    left: 30%;
-    animation-duration: 35s;
-    animation-delay: -2s;
-}
-
 @keyframes float {
     0% {
         transform: translate(0, 0) scale(1);
