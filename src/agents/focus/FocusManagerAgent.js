@@ -11,6 +11,7 @@ export class FocusManagerAgent extends BaseAgent {
         // Default session length in minutes
         this.defaultDuration = 25;
         this.timerId = null;
+        this.lastCancelTime = 0;
     }
 
     /** Initialise listeners */
@@ -28,6 +29,12 @@ export class FocusManagerAgent extends BaseAgent {
 
     /** Start a new focus session */
     startSession({ durationMinutes = this.defaultDuration } = {}) {
+        // Prevent accidental restart immediately after cancel (e.g. double clicks)
+        if (Date.now() - this.lastCancelTime < 1500) return;
+
+        // Skip if already running (prevents event duplication)
+        if (this.timerId) return;
+
         this.clearTimer();
         this.currentDuration = durationMinutes; // Track current session length
         const totalMs = durationMinutes * 60 * 1000;
@@ -53,6 +60,8 @@ export class FocusManagerAgent extends BaseAgent {
     /** Cancel the current session */
     cancelSession() {
         this.clearTimer();
+        this.lastCancelTime = Date.now();
+        this.currentDuration = null; // Clear duration on cancel
         // StorageAgent will see status: 'idle' and clear/update storage
         this.emit('FOCUS_STATE_UPDATED', { status: 'idle', remainingMs: 0 });
     }
@@ -74,5 +83,11 @@ export class FocusManagerAgent extends BaseAgent {
             clearInterval(this.timerId);
             this.timerId = null;
         }
+    }
+
+    /** Clean up */
+    destroy() {
+        this.clearTimer();
+        super.destroy();
     }
 }

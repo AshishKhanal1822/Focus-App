@@ -25,11 +25,19 @@ export default function FocusTimer() {
         .toString()
         .padStart(2, '0');
 
-    const handleStart = () => {
+    const handleStart = (e) => {
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
         eventBus.emit('FOCUS_START', { durationMinutes: modes[mode].minutes });
     };
 
-    const handleCancel = () => {
+    const handleCancel = (e) => {
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
         eventBus.emit('FOCUS_CANCEL');
     };
 
@@ -76,6 +84,7 @@ export default function FocusTimer() {
                 {/* Controls */}
                 {state.status === 'running' ? (
                     <button
+                        type="button"
                         className="btn btn-danger btn-lg rounded-pill px-5 d-flex align-items-center gap-2 mx-auto hover-scale shadow-sm"
                         onClick={handleCancel}
                     >
@@ -83,6 +92,7 @@ export default function FocusTimer() {
                     </button>
                 ) : (
                     <button
+                        type="button"
                         className={`btn btn-lg rounded-pill px-5 d-flex align-items-center gap-2 mx-auto hover-scale shadow-lg ${mode === 'focus' ? 'btn-primary' : 'btn-success text-white'}`}
                         onClick={handleStart}
                     >

@@ -41,9 +41,13 @@ function AppContent({ theme, toggleTheme, deferredPrompt, handleInstall }) {
 
   // Initialise agents once for the app lifecycle
   useEffect(() => {
-    // Request notification permission
-    if ('Notification' in window && Notification.permission === 'default') {
-      Notification.requestPermission();
+    // Request notification permission proactively
+    if ('Notification' in window) {
+      if (Notification.permission === 'default' || Notification.permission === 'denied') {
+        Notification.requestPermission().then(permission => {
+          console.log('Notification permission:', permission);
+        });
+      }
     }
 
     const focusAgent = new FocusManagerAgent();

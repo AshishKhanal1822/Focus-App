@@ -141,20 +141,21 @@
 
 /* Force high contrast for all text in dark mode */
 [data-theme='dark'] p,
-[data-theme='dark'] span,
-[data-theme='dark'] div,
+[data-theme='dark'] .lead,
+[data-theme='dark'] .text-muted,
+[data-theme='dark'] .opacity-75,
+[data-theme='dark'] .opacity-50 {
+    color: #cbd5e1;
+    opacity: 1 !important;
+}
+
 [data-theme='dark'] h1,
 [data-theme='dark'] h2,
 [data-theme='dark'] h3,
 [data-theme='dark'] h4,
 [data-theme='dark'] h5,
-[data-theme='dark'] h6,
-[data-theme='dark'] .lead,
-[data-theme='dark'] .text-muted,
-[data-theme='dark'] .opacity-75,
-[data-theme='dark'] .opacity-50 {
-    color: #cbd5e1 !important;
-    opacity: 1 !important;
+[data-theme='dark'] h6 {
+    color: #f1f5f9;
 }
 
 [data-theme='dark'] .text-muted,
@@ -212,6 +213,19 @@
 [data-theme='dark'] .badge svg {
     color: inherit;
     /* Keep original color if context dictates */
+}
+
+/* Functional Color Preservation */
+[data-theme='dark'] .text-danger {
+    color: #ef4444 !important;
+}
+
+[data-theme='dark'] .text-success {
+    color: #10b981 !important;
+}
+
+[data-theme='dark'] .text-primary {
+    color: var(--primary-light) !important;
 }
 
 * {

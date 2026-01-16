@@ -32,6 +32,10 @@ export class NotificationAgent extends BaseAgent {
                     this.hasSentWarning = true;
                 }
             }
+            // Clear active notifications if session becomes idle
+            if (state.status === 'idle') {
+                this.clearActiveNotifications();
+            }
         });
 
         // Listen for the focus session completion event
@@ -42,7 +46,11 @@ export class NotificationAgent extends BaseAgent {
         await ServiceWorkerAdapter.showNotification('Focus Session Started', {
             body: 'Timer is running! Stay focused and productive.',
             icon: '/pwa-192x192.png',
-            tag: 'focus-start-notification'
+            badge: '/pwa-192x192.png',
+            tag: 'focus-start-notification',
+            vibrate: [100, 50, 100],
+            requireInteraction: false,
+            renotify: true
         });
     }
 
@@ -55,12 +63,22 @@ export class NotificationAgent extends BaseAgent {
     }
 
     async handleFocusCompleted() {
+        // Clear previous "starting" notifications first
+        this.clearActiveNotifications();
+
         await ServiceWorkerAdapter.showNotification('Focus Session Complete', {
             body: 'Great job! Your focus timer has finished.',
             icon: '/pwa-192x192.png',
-            vibrate: [200, 100, 200],
-            tag: 'focus-notification',
-            renotify: true
+            badge: '/pwa-192x192.png',
+            vibrate: [500, 110, 500, 110, 450, 110, 200, 110, 170, 40, 450, 110, 200, 110, 170, 40],
+            tag: 'focus-notification-complete',
+            renotify: true,
+            requireInteraction: true // Keep on screen on mobile until dismissed
         });
+    }
+
+    async clearActiveNotifications() {
+        await ServiceWorkerAdapter.clearNotifications('focus-start-notification');
+        await ServiceWorkerAdapter.clearNotifications('focus-warning-notification');
     }
 }

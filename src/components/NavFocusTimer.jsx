@@ -11,11 +11,19 @@ export default function NavFocusTimer() {
         .toString()
         .padStart(2, '0');
 
-    const handleStart = () => {
+    const handleStart = (e) => {
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
         eventBus.emit('FOCUS_START', { durationMinutes: 25 });
     };
 
-    const handleCancel = () => {
+    const handleCancel = (e) => {
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
         eventBus.emit('FOCUS_CANCEL');
     };
 
@@ -26,7 +34,8 @@ export default function NavFocusTimer() {
                     {minutes}:{seconds}
                 </span>
                 <button
-                    className="btn btn-sm btn-link p-0 text-danger text-decoration-none small fw-bold"
+                    type="button"
+                    className="btn btn-sm btn-link p-2 text-danger text-decoration-none small fw-bold"
                     onClick={handleCancel}
                 >
                     Cancel
@@ -37,6 +46,7 @@ export default function NavFocusTimer() {
 
     return (
         <button
+            type="button"
             className="btn btn-sm btn-outline-primary rounded-pill px-3"
             onClick={handleStart}
         >
