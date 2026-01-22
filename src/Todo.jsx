@@ -43,16 +43,29 @@ function Todo() {
         e.preventDefault();
         if (!input.trim()) return;
 
-        if (isCloud) {
-            const user = await SupabaseAdapter.getUser();
-            const { data, error } = await SupabaseAdapter.getClient()
-                .from('tasks')
-                .insert([{ user_id: user.id, text: input, completed: false }])
-                .select()
-                .single();
+        const newTask = { text: input, completed: false };
 
-            if (data) {
-                setTasks([...tasks, data]);
+        if (isCloud) {
+            try {
+                const user = await SupabaseAdapter.getUser();
+                const { data, error } = await SupabaseAdapter.getClient()
+                    .from('tasks')
+                    .insert([{ user_id: user.id, text: input, completed: false }])
+                    .select()
+                    .single();
+
+                if (error) throw error;
+                if (data) setTasks([...tasks, data]);
+            } catch (err) {
+                console.warn("Cloud add failed, queueing for sync", err);
+                const tempId = Date.now();
+                const tempTask = { ...newTask, id: tempId, pending: true };
+                setTasks([...tasks, tempTask]);
+
+                // Queue for background sync
+                import('./agents/core/SyncAgent.js').then(m => {
+                    m.default.addToQueue('todo', 'add', newTask);
+                });
             }
         } else {
             setTasks([...tasks, { id: Date.now(), text: input, completed: false }]);
@@ -67,10 +80,18 @@ function Todo() {
         ));
 
         if (isCloud) {
-            await SupabaseAdapter.getClient()
-                .from('tasks')
-                .update({ completed: !currentStatus })
-                .eq('id', id);
+            try {
+                const { error } = await SupabaseAdapter.getClient()
+                    .from('tasks')
+                    .update({ completed: !currentStatus })
+                    .eq('id', id);
+                if (error) throw error;
+            } catch (err) {
+                console.warn("Cloud toggle failed, queueing for sync");
+                import('./agents/core/SyncAgent.js').then(m => {
+                    m.default.addToQueue('todo', 'update', { id, updates: { completed: !currentStatus } });
+                });
+            }
         }
     };
 
@@ -79,10 +100,18 @@ function Todo() {
         setTasks(tasks.filter(task => task.id !== id));
 
         if (isCloud) {
-            await SupabaseAdapter.getClient()
-                .from('tasks')
-                .delete()
-                .eq('id', id);
+            try {
+                const { error } = await SupabaseAdapter.getClient()
+                    .from('tasks')
+                    .delete()
+                    .eq('id', id);
+                if (error) throw error;
+            } catch (err) {
+                console.warn("Cloud delete failed, queueing for sync");
+                import('./agents/core/SyncAgent.js').then(m => {
+                    m.default.addToQueue('todo', 'delete', { id });
+                });
+            }
         }
     };
 

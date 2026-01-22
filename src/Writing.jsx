@@ -113,8 +113,13 @@ function Writing() {
                 setSavedStatus('Saved Locally');
             }
         } catch (e) {
-            console.error("Cloud save failed:", e);
-            setSavedStatus('Saved Locally (Cloud Failed)');
+            console.error("Cloud save failed, queueing for sync:", e);
+            setSavedStatus('Saved Locally (Sync Pending)');
+
+            // Queue for background sync
+            import('./agents/core/SyncAgent.js').then(m => {
+                m.default.addToQueue('writing', 'save', { content: text, title: title });
+            });
         } finally {
             setIsLoading(false);
             setTimeout(() => setSavedStatus(''), 3000);

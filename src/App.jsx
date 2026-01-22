@@ -27,13 +27,19 @@ import NavFocusTimer from './components/NavFocusTimer.jsx';
 import SupabaseAdapter from './agents/adapters/SupabaseAdapter.js';
 import { eventBus } from './agents/core/EventBus.js';
 import { useAgentEvent } from './hooks/useAgentEvent';
+import SyncAgent from './agents/core/SyncAgent.js';
 
 // Loading Spinner Component
+// Subtle Top Loading Bar
 const PageLoader = () => (
-  <div className="d-flex justify-content-center align-items-center" style={{ minHeight: '60vh' }}>
-    <div className="spinner-border text-primary" role="status">
-      <span className="visually-hidden">Loading...</span>
-    </div>
+  <div className="position-fixed top-0 start-0 w-100" style={{ zIndex: 9999, height: '3px' }}>
+    <motion.div
+      initial={{ width: "0%" }}
+      animate={{ width: "100%" }}
+      transition={{ duration: 0.5, ease: "easeInOut" }}
+      className="h-100 bg-primary shadow-sm"
+      style={{ boxShadow: '0 0 10px var(--primary)' }}
+    />
   </div>
 );
 
@@ -50,6 +56,15 @@ function AppContent({ theme, toggleTheme }) {
   const [user, setUser] = useState(null);
   const previousUserRef = useRef(null);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [showSyncSuccess, setShowSyncSuccess] = useState(false);
+
+  useEffect(() => {
+    const unsub = eventBus.on('SYNC_COMPLETED', () => {
+      setShowSyncSuccess(true);
+      setTimeout(() => setShowSyncSuccess(false), 3000);
+    });
+    return unsub;
+  }, []);
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
@@ -74,12 +89,14 @@ function AppContent({ theme, toggleTheme }) {
     authAgent.init();
     focusAgent.init();
     notificationAgent.init();
+    SyncAgent.init();
 
     return () => {
       focusAgent.destroy();
       notificationAgent.destroy();
       storageAgent.destroy();
       authAgent.destroy();
+      SyncAgent.destroy();
     };
   }, []);
 
@@ -149,6 +166,18 @@ function AppContent({ theme, toggleTheme }) {
     }
   };
 
+  const handlePrefetch = (path) => () => {
+    // Manually trigger dynamic imports on hover to prime the browser cache
+    switch (path) {
+      case '/features': import('./Features'); break;
+      case '/about': import('./About'); break;
+      case '/faq': import('./FAQ'); break;
+      case '/library': import('./Library'); break;
+      case '/writing': import('./Writing'); break;
+      default: break;
+    }
+  };
+
   const handleFooterJoin = (e) => {
     e.preventDefault();
     eventBus.emit('SHOW_LOGIN');
@@ -198,6 +227,11 @@ function AppContent({ theme, toggleTheme }) {
                 Offline
               </span>
             )}
+            {showSyncSuccess && (
+              <span className="badge bg-success ms-2 rounded-pill px-3 animate-fade-in">
+                Synced!
+              </span>
+            )}
 
             <NavProfile />
           </div>
@@ -211,22 +245,44 @@ function AppContent({ theme, toggleTheme }) {
             {!isFocusActive && (
               <ul className="navbar-nav ms-auto">
                 <li className="nav-item">
-                  <Link className={`nav-link px-3 ${location.pathname === '/' && !location.hash ? 'active' : ''}`} to="/" onClick={handleNavClick('/')}>Home</Link>
+                  <Link
+                    className={`nav-link px-3 ${location.pathname === '/' && !location.hash ? 'active' : ''}`}
+                    to="/"
+                    onClick={handleNavClick('/')}
+                    onMouseEnter={handlePrefetch('/')}
+                  >
+                    Home
+                  </Link>
                 </li>
                 <li className="nav-item">
                   <Link
                     className={`nav-link px-3 ${location.pathname === '/features' ? 'active' : ''}`}
                     to="/features"
                     onClick={handleNavClick('/features')}
+                    onMouseEnter={handlePrefetch('/features')}
                   >
                     Features
                   </Link>
                 </li>
                 <li className="nav-item">
-                  <Link className={`nav-link px-3 ${location.pathname === '/about' ? 'active' : ''}`} to="/about" onClick={handleNavClick('/about')}>About</Link>
+                  <Link
+                    className={`nav-link px-3 ${location.pathname === '/about' ? 'active' : ''}`}
+                    to="/about"
+                    onClick={handleNavClick('/about')}
+                    onMouseEnter={handlePrefetch('/about')}
+                  >
+                    About
+                  </Link>
                 </li>
                 <li className="nav-item">
-                  <Link className={`nav-link px-3 ${location.pathname === '/faq' ? 'active' : ''}`} to="/faq" onClick={handleNavClick('/faq')}>FAQ</Link>
+                  <Link
+                    className={`nav-link px-3 ${location.pathname === '/faq' ? 'active' : ''}`}
+                    to="/faq"
+                    onClick={handleNavClick('/faq')}
+                    onMouseEnter={handlePrefetch('/faq')}
+                  >
+                    FAQ
+                  </Link>
                 </li>
                 {!user && (
                   <li className="nav-item">
@@ -240,16 +296,16 @@ function AppContent({ theme, toggleTheme }) {
       </nav>
 
       <main className="main-content" id="main-content">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={location.pathname}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.3, ease: "easeInOut" }}
-            className="page-transition-wrapper"
-          >
-            <Suspense fallback={<PageLoader />}>
+        <Suspense fallback={<PageLoader />}>
+          <AnimatePresence mode="popLayout">
+            <motion.div
+              key={location.pathname}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="page-transition-wrapper"
+            >
               <Routes location={location}>
                 <Route path="/" element={<Home />} />
                 <Route path="/profile" element={<Profile />} />
@@ -262,9 +318,9 @@ function AppContent({ theme, toggleTheme }) {
                 <Route path="/library" element={<Library />} />
                 <Route path="/writing" element={<Writing />} />
               </Routes>
-            </Suspense>
-          </motion.div>
-        </AnimatePresence>
+            </motion.div>
+          </AnimatePresence>
+        </Suspense>
       </main>
 
       {!isFocusActive && (
