@@ -1,4 +1,3 @@
-import './App.css'
 import { useState, useEffect, useRef, Suspense, lazy } from "react"
 import { BrowserRouter as Router, Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -50,18 +49,21 @@ function AppContent({ theme, toggleTheme, deferredPrompt, handleInstall }) {
   const [welcomeUser, setWelcomeUser] = useState(null);
   const [user, setUser] = useState(null);
   const previousUserRef = useRef(null);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   // Initialise agents once for the app lifecycle
   useEffect(() => {
-    // Request notification permission proactively
-    if ('Notification' in window) {
-      if (Notification.permission === 'default' || Notification.permission === 'denied') {
-        Notification.requestPermission().then(permission => {
-          console.log('Notification permission:', permission);
-        });
-      }
-    }
-
     const focusAgent = new FocusManagerAgent();
     const notificationAgent = new NotificationAgent();
     const storageAgent = new StorageAgent();
@@ -179,12 +181,23 @@ function AppContent({ theme, toggleTheme, deferredPrompt, handleInstall }) {
               type="button"
               data-bs-toggle="collapse"
               data-bs-target="#navbarNav"
+              aria-label="Toggle navigation"
             >
               <span className="navbar-toggler-icon"></span>
             </button>
-            <div className="theme-toggle ms-2" onClick={toggleTheme} style={{ cursor: 'pointer' }}>
+            <button
+              className="theme-toggle ms-2 btn border-0 p-0"
+              onClick={toggleTheme}
+              style={{ cursor: 'pointer', background: 'none' }}
+              aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
+            >
               {theme === 'light' ? '🌙' : '☀️'}
-            </div>
+            </button>
+            {!isOnline && (
+              <span className="badge bg-danger ms-2 rounded-pill px-3">
+                Offline
+              </span>
+            )}
             {deferredPrompt && (
               <button
                 className="btn btn-primary btn-sm ms-2 rounded-pill px-3"
@@ -233,7 +246,7 @@ function AppContent({ theme, toggleTheme, deferredPrompt, handleInstall }) {
         </div>
       </nav>
 
-      <div className="main-content">
+      <main className="main-content" id="main-content">
         <AnimatePresence mode="wait">
           <motion.div
             key={location.pathname}
@@ -259,7 +272,7 @@ function AppContent({ theme, toggleTheme, deferredPrompt, handleInstall }) {
             </Suspense>
           </motion.div>
         </AnimatePresence>
-      </div>
+      </main>
 
       {!isFocusActive && (
         <footer className="py-5 mt-5 glass border-top-0">

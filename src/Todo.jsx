@@ -137,6 +137,7 @@ function Todo() {
                                 onClick={() => deleteTask(task.id)}
                                 className="btn btn-sm btn-outline-danger border-0 rounded-circle"
                                 style={{ transition: 'var(--transition)' }}
+                                aria-label={`Delete task: ${task.text}`}
                             >
                                 ✕
                             </button>

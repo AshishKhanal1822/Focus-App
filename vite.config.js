@@ -11,7 +11,7 @@ export default defineConfig({
       devOptions: {
         enabled: true
       },
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
+      includeAssets: ['apple-touch-icon.png', 'vite.svg'],
       manifest: {
         name: 'Focus - Productivity App',
         short_name: 'Focus',
@@ -59,6 +59,7 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,json}'],
+        navigateFallback: '/index.html',
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
@@ -103,4 +104,7 @@ export default defineConfig({
       }
     })
   ],
+  build: {
+    sourcemap: true,
+  },
 })

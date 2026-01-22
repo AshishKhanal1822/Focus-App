@@ -40,14 +40,19 @@ function Home() {
         visible: {
             opacity: 1,
             transition: {
-                staggerChildren: 0.2
+                staggerChildren: 0.1,
+                delayChildren: 0.1
             }
         }
     };
 
     const itemVariants = {
         hidden: { opacity: 0, y: 20 },
-        visible: { opacity: 1, y: 0 }
+        visible: {
+            opacity: 1,
+            y: 0,
+            transition: { duration: 0.4, ease: "easeOut" }
+        }
     };
 
     return (
@@ -105,6 +110,8 @@ function Home() {
                                     src="https://images.unsplash.com/photo-1516414447565-b14be0adf13e?auto=format&fit=crop&q=80&w=1000"
                                     alt="Writing"
                                     className="custom-img"
+                                    fetchPriority="high"
+                                    loading="eager"
                                 />
                                 <div className="position-absolute top-0 end-0 m-3">
                                     <div className="p-2 rounded-circle glass shadow-sm">

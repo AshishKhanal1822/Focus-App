@@ -163,7 +163,11 @@ export default function NavProfile() {
                     <div className="p-2">
                         <div className="d-flex justify-content-between align-items-center mb-2 px-2 pt-2">
                             <h6 className="fw-bold mb-0">{user ? 'My Profile' : 'Login / Setup'}</h6>
-                            <button className="btn-close btn-sm" onClick={() => setIsOpen(false)}></button>
+                            <button
+                                className="btn-close btn-sm"
+                                onClick={() => setIsOpen(false)}
+                                aria-label="Close profile menu"
+                            ></button>
                         </div>
                         <div style={{ maxHeight: '80vh', overflowY: 'auto' }}>
                             <Profile initialUser={user} />

@@ -230,7 +230,7 @@ const Library = () => {
                                 >
                                     <div className="d-flex justify-content-between align-items-center mb-4 text-body">
                                         <h5 className="fw-bold mb-0">Suggest a Resource</h5>
-                                        <button className="btn btn-light rounded-circle p-2 btn-sm" onClick={() => setShowSuggestModal(false)}>
+                                        <button className="btn btn-light rounded-circle p-2 btn-sm" onClick={() => setShowSuggestModal(false)} aria-label="Close suggestion modal">
                                             <X size={16} />
                                         </button>
                                     </div>
@@ -318,6 +318,7 @@ const Library = () => {
                                     <button
                                         className="btn btn-light rounded-circle p-2"
                                         onClick={() => setSelectedBook(null)}
+                                        aria-label="Close reader"
                                     >
                                         <X size={20} />
                                     </button>
