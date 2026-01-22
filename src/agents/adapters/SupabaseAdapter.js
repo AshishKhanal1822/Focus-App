@@ -14,17 +14,9 @@ class SupabaseAdapter {
         const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
         const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-
-        console.log("Supabase Init Check:", {
-            hasUrl: !!supabaseUrl,
-            urlLength: supabaseUrl ? supabaseUrl.length : 0,
-            hasKey: !!supabaseKey
-        });
-
         if (supabaseUrl && supabaseKey) {
             try {
                 this.supabase = createClient(supabaseUrl, supabaseKey);
-                console.log("Supabase Client Initialized Successfully");
 
                 // Track auth state for caching
                 this.supabase.auth.onAuthStateChange((_event, session) => {
@@ -36,10 +28,8 @@ class SupabaseAdapter {
                     }
                 });
             } catch (err) {
-                console.error("Supabase Client Init Failed:", err.message);
+                // Silently fail if initialization error occurs
             }
-        } else {
-            console.warn('Supabase credentials missing. Check .env file.');
         }
     }
 

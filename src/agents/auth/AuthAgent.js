@@ -32,9 +32,6 @@ export class AuthAgent extends BaseAgent {
         const { data, error } = await SupabaseAdapter.signIn(email, password);
         if (error) {
             this.emit('AUTH_ERROR', { message: error.message });
-        } else {
-            // Success is handled by onAuthStateChange
-            console.log('Logged in:', data.user.email);
         }
     }
 

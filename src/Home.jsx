@@ -108,6 +108,8 @@ function Home() {
                             <div className="position-relative">
                                 <img
                                     src="https://images.unsplash.com/photo-1516414447565-b14be0adf13e?auto=format&fit=crop&q=80&w=1000"
+                                    srcSet="https://images.unsplash.com/photo-1516414447565-b14be0adf13e?auto=format&fit=crop&q=80&w=600 600w, https://images.unsplash.com/photo-1516414447565-b14be0adf13e?auto=format&fit=crop&q=80&w=1000 1000w, https://images.unsplash.com/photo-1516414447565-b14be0adf13e?auto=format&fit=crop&q=80&w=1500 1500w"
+                                    sizes="(max-width: 768px) 100vw, 50vw"
                                     alt="Writing"
                                     className="custom-img"
                                     fetchPriority="high"
@@ -120,7 +122,7 @@ function Home() {
                                 </div>
                             </div>
                             <div className="card-body p-4 d-flex flex-column">
-                                <h3 className="fw-bold mb-2">Deep Writing</h3>
+                                <h2 className="fw-bold mb-2">Deep Writing</h2>
                                 <p className="text-muted flex-grow-1 mb-4">
                                     Unleash your creativity in a distraction-free zone meticulously designed to help you maintain a perfect flow state.
                                 </p>
@@ -152,7 +154,7 @@ function Home() {
                                 </div>
                             </div>
                             <div className="card-body p-4 d-flex flex-column">
-                                <h3 className="fw-bold mb-2">Immersive Reading</h3>
+                                <h2 className="fw-bold mb-2">Immersive Reading</h2>
                                 <p className="text-muted flex-grow-1 mb-4">
                                     Focus on every word with specialized tools built for deep reading, academic research, and cognitive absorption.
                                 </p>
@@ -179,7 +181,7 @@ function Home() {
                             <div className="p-2 rounded-3 bg-primary bg-opacity-10 text-primary">
                                 <CheckCircle2 size={24} />
                             </div>
-                            <h3 className="fw-bold mb-0">Daily Focus</h3>
+                            <h2 className="fw-bold mb-0">Daily Focus</h2>
                         </div>
                         <Todo />
                     </div>

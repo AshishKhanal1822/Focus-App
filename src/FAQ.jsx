@@ -39,9 +39,9 @@ function FAQ() {
             <div className="row justify-content-center">
                 <div className="col-lg-8">
                     <div className="text-center mb-5">
-                        <h2 className="display-5 fw-bold inline-flex align-items-center gap-3">
+                        <h1 className="display-5 fw-bold inline-flex align-items-center gap-3">
                             <HelpCircle className="text-primary" /> Frequently Asked Questions
-                        </h2>
+                        </h1>
                         <p className="lead opacity-75">Got questions? We've got answers.</p>
                     </div>
 
@@ -61,7 +61,7 @@ function FAQ() {
                                         data-bs-toggle="collapse"
                                         data-bs-target={`#faq-${index}`}
                                     >
-                                        <span className="fw-bold fs-5 text-current">{faq.q}</span>
+                                        <h2 className="fw-bold fs-5 text-current mb-0">{faq.q}</h2>
                                         <ChevronDown size={20} className="opacity-50" />
                                     </button>
                                     <div id={`faq-${index}`} className="collapse">

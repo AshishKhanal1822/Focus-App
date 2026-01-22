@@ -12,7 +12,6 @@ class ServiceWorkerAdapter {
             const registration = await navigator.serviceWorker.ready;
             return registration;
         } catch (e) {
-            console.error('Failed to get service worker registration', e);
             return null;
         }
     }
@@ -41,7 +40,7 @@ class ServiceWorkerAdapter {
                 await registration.showNotification(title, notificationOptions);
                 return;
             } catch (e) {
-                console.warn('SW notification failed, trying fallback', e);
+                // SW notification failed, trying fallback
             }
         }
 

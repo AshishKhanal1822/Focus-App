@@ -48,7 +48,7 @@ function About() {
                         whileInView={{ opacity: 1, x: 0 }}
                         transition={{ duration: 0.6 }}
                     >
-                        <h2 className="display-4 fw-bold mb-4">Our Mission: <span className="text-primary">Redefining Focus</span></h2>
+                        <h1 className="display-4 fw-bold mb-4">Our Mission: <span className="text-primary">Redefining Focus</span></h1>
                         <p className="lead opacity-75 mb-4">
                             In a world full of distractions, we believe that the ability to focus is a superpower.
                             Our goal is to provide you with the cleanest, most intuitive tools to help you do your best work.
@@ -57,14 +57,14 @@ function About() {
                             <div className="d-flex align-items-center gap-3 p-3 glass rounded-3">
                                 <Users size={24} className="text-info" />
                                 <div>
-                                    <h6 className="fw-bold mb-0">User-Centric</h6>
+                                    <h2 className="fs-6 fw-bold mb-0">User-Centric</h2>
                                     <p className="small opacity-75 mb-0">Built based on feedback from thousands of users.</p>
                                 </div>
                             </div>
                             <div className="d-flex align-items-center gap-3 p-3 glass rounded-3">
                                 <Target size={24} className="text-success" />
                                 <div>
-                                    <h6 className="fw-bold mb-0">Purpose Driven</h6>
+                                    <h2 className="fs-6 fw-bold mb-0">Purpose Driven</h2>
                                     <p className="small opacity-75 mb-0">Every feature is designed with a clear goal in mind.</p>
                                 </div>
                             </div>
@@ -117,7 +117,7 @@ function About() {
                         />
                         <div className="position-absolute bottom-0 start-0 m-4 p-4 glass rounded-4 d-none d-md-block" style={{ maxWidth: '250px' }}>
                             <Rocket className="text-warning mb-2" size={32} />
-                            <h5 className="fw-bold mb-0 text-white">10M+ Tasks</h5>
+                            <h2 className="fs-5 fw-bold mb-0 text-white">10M+ Tasks</h2>
                             <p className="small opacity-75 mb-0 text-white">Completed by our users worldwide.</p>
                         </div>
                     </motion.div>

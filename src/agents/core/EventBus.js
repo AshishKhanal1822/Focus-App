@@ -34,7 +34,7 @@ class EventBus {
                 try {
                     cb(payload);
                 } catch (e) {
-                    console.error('EventBus listener error', e);
+                    // Fail gracefully
                 }
             });
         }

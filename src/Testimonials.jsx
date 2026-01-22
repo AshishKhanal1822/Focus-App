@@ -152,7 +152,7 @@ function Testimonials() {
                                             <Star key={i} size={16} fill="currentColor" />
                                         ))}
                                     </div>
-                                    <h6 className="fw-bold mb-0">{testi.name}</h6>
+                                    <h3 className="fs-6 fw-bold mb-0">{testi.name}</h3>
                                     <p className="small opacity-75 mb-0">{testi.role}</p>
                                 </div>
                             </div>
@@ -193,7 +193,7 @@ function Testimonials() {
                     <div className="modal-dialog modal-dialog-centered" onClick={(e) => e.stopPropagation()}>
                         <div className="modal-content glass border-0">
                             <div className="modal-header border-0">
-                                <h5 className="modal-title fw-bold">Write Your Review</h5>
+                                <h3 className="modal-title fs-5 fw-bold">Write Your Review</h3>
                                 <button type="button" className="btn-close" onClick={() => setShowModal(false)}></button>
                             </div>
                             <div className="modal-body">

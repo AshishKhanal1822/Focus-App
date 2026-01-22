@@ -39,14 +39,14 @@ function Features() {
     return (
         <div className="container py-5 mt-5">
             <div className="text-center mb-5">
-                <motion.h2
+                <motion.h1
                     initial={{ opacity: 0, y: 20 }}
                     whileInView={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.5 }}
                     className="display-5 fw-bold"
                 >
                     Powerful Features
-                </motion.h2>
+                </motion.h1>
                 <p className="lead opacity-75">Everything you need to stay focused and productive.</p>
             </div>
 
@@ -65,7 +65,7 @@ function Features() {
                                     {React.cloneElement(feature.icon, { size: 32 })}
                                 </div>
                             </div>
-                            <h4 className="fw-bold mb-3">{feature.title}</h4>
+                            <h2 className="fs-5 fw-bold mb-3">{feature.title}</h2>
                             <p className="opacity-75 mb-0">{feature.description}</p>
                         </div>
                     </motion.div>

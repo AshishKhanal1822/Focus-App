@@ -37,7 +37,7 @@ const PageLoader = () => (
   </div>
 );
 
-function AppContent({ theme, toggleTheme, deferredPrompt, handleInstall }) {
+function AppContent({ theme, toggleTheme }) {
   const focusState = useAgentEvent('FOCUS_STATE_UPDATED', { status: 'idle' });
   const isFocusActive = focusState?.status === 'running';
   const location = useLocation();
@@ -124,7 +124,7 @@ function AppContent({ theme, toggleTheme, deferredPrompt, handleInstall }) {
         sub = result;
       }
     } catch (e) {
-      console.warn("Failed to set up auth listener for welcome animation:", e);
+      // Auth listener error
     }
 
     return () => {
@@ -198,14 +198,7 @@ function AppContent({ theme, toggleTheme, deferredPrompt, handleInstall }) {
                 Offline
               </span>
             )}
-            {deferredPrompt && (
-              <button
-                className="btn btn-primary btn-sm ms-2 rounded-pill px-3"
-                onClick={handleInstall}
-              >
-                Install
-              </button>
-            )}
+
             <NavProfile />
           </div>
 
@@ -335,32 +328,14 @@ function AppContent({ theme, toggleTheme, deferredPrompt, handleInstall }) {
 
 function App() {
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'light');
-  const [deferredPrompt, setDeferredPrompt] = useState(null);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('theme', theme);
   }, [theme]);
 
-  useEffect(() => {
-    window.addEventListener('beforeinstallprompt', (e) => {
-      e.preventDefault();
-      setDeferredPrompt(e);
-    });
-  }, []);
-
   const toggleTheme = () => {
     setTheme(prev => (prev === 'light' ? 'dark' : 'light'));
-  };
-
-  const handleInstall = async () => {
-    if (deferredPrompt) {
-      deferredPrompt.prompt();
-      const { outcome } = await deferredPrompt.userChoice;
-      if (outcome === 'accepted') {
-        setDeferredPrompt(null);
-      }
-    }
   };
 
   return (
@@ -368,8 +343,6 @@ function App() {
       <AppContent
         theme={theme}
         toggleTheme={toggleTheme}
-        deferredPrompt={deferredPrompt}
-        handleInstall={handleInstall}
       />
     </Router>
   )
