@@ -13,7 +13,8 @@ export default function NavProfile() {
     const dropdownRef = useRef(null);
     const navigate = useNavigate();
 
-    const avatarUrl = localAvatar || user?.user_metadata?.avatar_url;
+    // Prioritize cloud sync over local fallback
+    const avatarUrl = user?.user_metadata?.avatar_url || localAvatar;
     const initials = user?.email ? user.email[0].toUpperCase() : 'U';
 
     useEffect(() => {

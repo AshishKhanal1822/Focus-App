@@ -104,11 +104,18 @@ class SupabaseAdapter {
 
     async getUser() {
         if (!this.supabase) return null;
-        if (this.cachedUser) return this.cachedUser;
 
-        const { data } = await this.supabase.auth.getUser();
-        this.cachedUser = data.user;
-        return data.user;
+        // Use auth.getUser() to get fresh state from server
+        // This ensures cross-device changes (like name) are reflected
+        const { data: { user }, error } = await this.supabase.auth.getUser();
+        if (error || !user) {
+            // If offline or error, fallback to cache if available
+            return this.cachedUser;
+        }
+
+        this.cachedUser = user;
+        localStorage.setItem('supabase_user_cache', JSON.stringify(user));
+        return user;
     }
 
     onAuthStateChange(callback) {
@@ -122,49 +129,51 @@ class SupabaseAdapter {
         console.log("updateProfile called with:", Object.keys(updates));
         if (!this.supabase) return { error: { message: 'Supabase not configured' } };
 
-        let latestUser = null;
-
-        // 1. Separate Updates
-        // WE DO NOT SEND AVATAR TO AUTH SERVER ANYMORE to prevent "Failed to fetch" network blocks
-        const { avatar_url, ...safeAuthUpdates } = updates;
-
         try {
-            // 2. Always try to get current user ID
-            let { data: { user } } = await this.supabase.auth.getUser();
-
-            if (!user) {
-                const { data: { session } } = await this.supabase.auth.getSession();
-                user = session?.user;
-            }
-
+            // 1. Get current user
+            const { data: { user } } = await this.supabase.auth.getUser();
             if (!user) throw new Error("Session expired. Please sign out and sign in again.");
 
-            // NETWORK BLOCKED: We cannot upload to Supabase from this network.
-            // We will trust the ProfilePhoto component to save to LocalStorage as a fallback.
-            // Returning 'success' here so the UI updates, even though the cloud sync failed.
-            console.warn("Supabase upload blocked by network. Relying on LocalStorage fallback.");
+            // 2. Update Auth Metadata (for immediate UI update and basic info)
+            const { avatar_url, full_name, ...otherUpdates } = updates;
+            const authUpdates = {};
+            if (full_name !== undefined) authUpdates.full_name = full_name;
+            if (avatar_url !== undefined) authUpdates.avatar_url = avatar_url;
 
-            // Still try to update Name in Auth Metadata if possible (lightweight)
-            if (Object.keys(safeAuthUpdates).length > 0) {
-                try {
-                    const { data, error } = await this.supabase.auth.updateUser({
-                        data: safeAuthUpdates
-                    });
-                    if (!error) latestUser = data.user;
-                } catch (e) {
-                    console.warn("Auth Metadata update failed:", e);
-                }
-            } else {
-                latestUser = user;
+            if (Object.keys(authUpdates).length > 0) {
+                await this.supabase.auth.updateUser({
+                    data: authUpdates
+                });
             }
+
+            // 3. Update Profiles Table (for persistent cross-device storage)
+            const { error: profileError } = await this.supabase
+                .from('profiles')
+                .upsert({
+                    id: user.id,
+                    full_name: full_name !== undefined ? full_name : undefined,
+                    avatar_url: avatar_url !== undefined ? avatar_url : undefined,
+                    updated_at: new Date().toISOString(),
+                });
+
+            if (profileError) {
+                console.error("Profile table update failed:", profileError);
+                // We continue because auth metadata might have worked
+            }
+
+            // Refresh cached user
+            const { data: { user: updatedUser } } = await this.supabase.auth.getUser();
+            this.cachedUser = updatedUser;
+            if (updatedUser) {
+                localStorage.setItem('supabase_user_cache', JSON.stringify(updatedUser));
+            }
+
+            return { data: { user: updatedUser }, error: null };
 
         } catch (e) {
             console.error("updateProfile logic error:", e);
-            // Return success anyway to allow local fallback
-            return { data: { user: latestUser }, error: null };
+            return { data: null, error: e };
         }
-
-        return { data: { user: latestUser }, error: null };
     }
 
     async getProfile(userId) {

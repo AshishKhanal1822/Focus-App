@@ -455,18 +455,20 @@ body {
 .nav-link::after {
     content: '';
     position: absolute;
-    bottom: 5px;
+    bottom: -2px;
     left: 50%;
     width: 0;
-    height: 2px;
+    height: 3px;
     background: var(--primary);
     transition: var(--transition);
+    border-radius: 10px;
     transform: translateX(-50%);
 }
 
 .nav-link:hover::after,
 .nav-link.active::after {
-    width: 60%;
+    width: 20px;
+    /* Consistent fixed width prevents it from being too long on mobile */
 }
 
 .nav-link.active {
@@ -727,4 +729,27 @@ footer {
 .hero-gradient {
     background-size: 200% 200%;
     animation: gradient-shift 15s ease infinite;
+}
+
+/* Mobile Navbar Refinements */
+@media (max-width: 991.98px) {
+    .navbar-collapse {
+        margin-top: 1rem;
+        padding-bottom: 1rem;
+    }
+
+    .navbar-nav {
+        align-items: center;
+        text-align: center;
+    }
+
+    .nav-link {
+        width: fit-content !important;
+        margin: 0.25rem 0;
+    }
+
+    .nav-link::after {
+        bottom: 0;
+        /* Adjust vertical position for mobile stack */
+    }
 }

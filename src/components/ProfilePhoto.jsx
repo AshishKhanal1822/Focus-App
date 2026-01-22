@@ -14,7 +14,8 @@ export default function ProfilePhoto({ user, onUploadSuccess }) {
     const fileInputRef = useRef(null);
 
     const localAvatar = localStorage.getItem('user_avatar_local');
-    const avatarUrl = localAvatar || user?.user_metadata?.avatar_url;
+    // Prioritize user metadata (cloud sync) over local fallback
+    const avatarUrl = user?.user_metadata?.avatar_url || localAvatar;
     const initials = user?.email ? user.email[0].toUpperCase() : 'U';
 
     // Connect stream to video element whenever stream changes or view appears
