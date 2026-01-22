@@ -1,20 +1,24 @@
 import './App.css'
-import { useState, useEffect, useRef } from "react"
-import React from "react";
+import { useState, useEffect, useRef, Suspense, lazy } from "react"
 import { BrowserRouter as Router, Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom';
-import Home from './Home';
-import Contact from './contact';
-import Features from './Features';
-import About from './About';
-import FAQ from './FAQ';
-import Testimonials from './Testimonials';
-import GetStarted from './GetStarted';
-import Library from './Library';
-import Writing from './Writing';
+import { motion, AnimatePresence } from 'framer-motion';
+
+// Lazy loaded components
+const Home = lazy(() => import('./Home'));
+const Contact = lazy(() => import('./contact'));
+const Features = lazy(() => import('./Features'));
+const About = lazy(() => import('./About'));
+const FAQ = lazy(() => import('./FAQ'));
+const Testimonials = lazy(() => import('./Testimonials'));
+const GetStarted = lazy(() => import('./GetStarted'));
+const Library = lazy(() => import('./Library'));
+const Writing = lazy(() => import('./Writing'));
+
 import ScrollToTop from './ScrollToTop';
 import Profile from './components/Profile.jsx';
 import NavProfile from './components/NavProfile.jsx';
-import FocusTimer from './components/FocusTimer.jsx';
+// FocusTimer unused in this file, NavFocusTimer is used.
+// imported NavFocusTimer is used.
 import WelcomeAnimation from './components/WelcomeAnimation.jsx';
 import { FocusManagerAgent } from './agents/focus/FocusManagerAgent.js';
 import { NotificationAgent } from './agents/focus/NotificationAgent.js';
@@ -22,9 +26,17 @@ import { StorageAgent } from './agents/storage/StorageAgent.js';
 import { AuthAgent } from './agents/auth/AuthAgent.js';
 import NavFocusTimer from './components/NavFocusTimer.jsx';
 import SupabaseAdapter from './agents/adapters/SupabaseAdapter.js';
-import { motion, AnimatePresence } from 'framer-motion';
 import { eventBus } from './agents/core/EventBus.js';
 import { useAgentEvent } from './hooks/useAgentEvent';
+
+// Loading Spinner Component
+const PageLoader = () => (
+  <div className="d-flex justify-content-center align-items-center" style={{ minHeight: '60vh' }}>
+    <div className="spinner-border text-primary" role="status">
+      <span className="visually-hidden">Loading...</span>
+    </div>
+  </div>
+);
 
 function AppContent({ theme, toggleTheme, deferredPrompt, handleInstall }) {
   const focusState = useAgentEvent('FOCUS_STATE_UPDATED', { status: 'idle' });
@@ -170,9 +182,17 @@ function AppContent({ theme, toggleTheme, deferredPrompt, handleInstall }) {
             >
               <span className="navbar-toggler-icon"></span>
             </button>
-            <div className="theme-toggle ms-2" onClick={toggleTheme}>
+            <div className="theme-toggle ms-2" onClick={toggleTheme} style={{ cursor: 'pointer' }}>
               {theme === 'light' ? '🌙' : '☀️'}
             </div>
+            {deferredPrompt && (
+              <button
+                className="btn btn-primary btn-sm ms-2 rounded-pill px-3"
+                onClick={handleInstall}
+              >
+                Install
+              </button>
+            )}
             <NavProfile />
           </div>
 
@@ -223,18 +243,20 @@ function AppContent({ theme, toggleTheme, deferredPrompt, handleInstall }) {
             transition={{ duration: 0.3, ease: "easeInOut" }}
             className="page-transition-wrapper"
           >
-            <Routes location={location}>
-              <Route path="/" element={<Home />} />
-              <Route path="/profile" element={<Profile />} />
-              <Route path="/features" element={<Features />} />
-              <Route path="/about" element={<About />} />
-              <Route path="/faq" element={<FAQ />} />
-              <Route path="/testimonials" element={<Testimonials />} />
-              <Route path="/contact" element={!user ? <Contact /> : <Home />} />
-              <Route path="/get-started" element={<GetStarted />} />
-              <Route path="/library" element={<Library />} />
-              <Route path="/writing" element={<Writing />} />
-            </Routes>
+            <Suspense fallback={<PageLoader />}>
+              <Routes location={location}>
+                <Route path="/" element={<Home />} />
+                <Route path="/profile" element={<Profile />} />
+                <Route path="/features" element={<Features />} />
+                <Route path="/about" element={<About />} />
+                <Route path="/faq" element={<FAQ />} />
+                <Route path="/testimonials" element={<Testimonials />} />
+                <Route path="/contact" element={!user ? <Contact /> : <Home />} />
+                <Route path="/get-started" element={<GetStarted />} />
+                <Route path="/library" element={<Library />} />
+                <Route path="/writing" element={<Writing />} />
+              </Routes>
+            </Suspense>
           </motion.div>
         </AnimatePresence>
       </div>
