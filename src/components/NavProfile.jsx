@@ -10,65 +10,29 @@ export default function NavProfile() {
     const [isOpen, setIsOpen] = useState(false);
     const [loading, setLoading] = useState(!SupabaseAdapter.cachedUser);
     const [localAvatar, setLocalAvatar] = useState(localStorage.getItem('user_avatar_local'));
+    const [imgError, setImgError] = useState(false);
     const dropdownRef = useRef(null);
     const navigate = useNavigate();
 
-    // Prioritize cloud sync over local fallback
-    const avatarUrl = user?.user_metadata?.avatar_url || localAvatar;
+    // Authoritative derived state
+    const avatarUrl = user?.user_metadata?.avatar_url || localStorage.getItem('user_avatar_local');
     const initials = user?.email ? user.email[0].toUpperCase() : 'U';
 
     useEffect(() => {
-        const handleProfileUpdate = () => {
-            setLocalAvatar(localStorage.getItem('user_avatar_local'));
-        };
-
-        // Listen to event bus for immediate updates
-        eventBus.on('PROFILE_UPDATED', handleProfileUpdate);
-
-        // Listen to storage for cross-tab updates
-        window.addEventListener('storage', handleProfileUpdate);
-
-        return () => {
-            eventBus.off('PROFILE_UPDATED', handleProfileUpdate);
-            window.removeEventListener('storage', handleProfileUpdate);
-        };
-    }, []);
-
-    useEffect(() => {
-        let mounted = true;
-
-        // Check initial user
-        SupabaseAdapter.getUser()
-            .then(u => {
-                if (mounted) {
-                    setUser(u);
-                    setLoading(false);
+        // Authoritative cross-component user sync
+        const unsubscribe = SupabaseAdapter.subscribe((enrichedUser) => {
+            setUser(enrichedUser);
+            setLoading(false);
+            setImgError(false); // Reset error when user changes
+            if (enrichedUser) {
+                // Keep local storage manual fallback in sync too for first-load speed
+                const cloudUrl = enrichedUser.user_metadata?.avatar_url;
+                if (cloudUrl && typeof cloudUrl === 'string' && cloudUrl.startsWith('http')) {
+                    localStorage.setItem('user_avatar_local', cloudUrl);
                 }
-            })
-            .catch(err => {
-                console.error("NavProfile init user check failed", err);
-                if (mounted) setLoading(false);
-            });
-
-        // Listen to real auth changes
-        let sub = null;
-        try {
-            const result = SupabaseAdapter.onAuthStateChange((_event, session) => {
-                if (mounted) {
-                    setUser(session?.user || null);
-                    if (_event === 'SIGNED_IN') {
-                        setIsOpen(false);
-                    }
-                }
-            });
-            if (result && result.data && result.data.subscription) {
-                sub = result.data.subscription;
-            } else if (result && result.unsubscribe) {
-                sub = result;
+                setIsOpen(false); // Close dropdown on login
             }
-        } catch (error) {
-            console.warn("NavProfile auth subscription error:", error);
-        }
+        });
 
         // Close dropdown when clicking outside
         const handleClickOutside = (event) => {
@@ -84,39 +48,34 @@ export default function NavProfile() {
             window.scrollTo({ top: 0, behavior: 'smooth' });
         };
 
-        const handleProfileUpdate = async () => {
-            const u = await SupabaseAdapter.getUser();
-            if (mounted) setUser(u);
-        };
-
         eventBus.on('SHOW_LOGIN', handleShowLogin);
-        eventBus.on('PROFILE_UPDATED', handleProfileUpdate);
 
         return () => {
-            mounted = false;
-            if (sub && typeof sub.unsubscribe === 'function') sub.unsubscribe();
+            unsubscribe();
             document.removeEventListener('mousedown', handleClickOutside);
             eventBus.off('SHOW_LOGIN', handleShowLogin);
-            eventBus.off('PROFILE_UPDATED', handleProfileUpdate);
         };
     }, []);
 
     const handleLogout = async () => {
         try {
+            console.log("Logout triggered in NavProfile...");
             // Close dropdown immediately
             setIsOpen(false);
 
-            // Trigger signout
+            // Trigger signout - this now handles its own internal timeouts and clearing
             await SupabaseAdapter.signOut();
 
             // Explicitly clear local state in case events are slow
             setUser(null);
+            setLocalAvatar(null);
 
-            // Redirect to home and reload to ensure all agents/state are reset
-            window.location.href = '/';
+            // Yield briefly to let any listener state settle
+            setTimeout(() => {
+                window.location.href = '/';
+            }, 100);
         } catch (error) {
-            console.error("Logout failed:", error);
-            // Fallback to home anyway
+            console.error("Logout error in NavProfile:", error);
             window.location.href = '/';
         }
     };
@@ -143,11 +102,12 @@ export default function NavProfile() {
                         className="rounded-circle bg-secondary d-flex align-items-center justify-content-center overflow-hidden border border-2 border-white"
                         style={{ width: '38px', height: '38px' }}
                     >
-                        {avatarUrl ? (
+                        {avatarUrl && !imgError ? (
                             <img
                                 src={avatarUrl}
                                 alt="Profile"
                                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                onError={() => setImgError(true)}
                             />
                         ) : (
                             <span className="small text-white text-uppercase fw-bold">

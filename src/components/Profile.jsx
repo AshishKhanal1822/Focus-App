@@ -20,96 +20,66 @@ export default function Profile({ initialUser = null }) {
     const [isEditing, setIsEditing] = useState(false);
     const [newName, setNewName] = useState('');
     const [isUpdating, setIsUpdating] = useState(false);
+    const lastRefreshRef = useRef(0);
+    const skipNextRefreshRef = useRef(false);
     const previousUserRef = useRef(null);
 
     const handleUpdateName = async (e) => {
         e.preventDefault();
-        if (!newName.trim()) return;
+        const trimmedName = newName.trim();
+        if (!trimmedName) return;
+
         setIsUpdating(true);
-        const { error } = await SupabaseAdapter.updateProfile({ full_name: newName });
+        skipNextRefreshRef.current = true; // Prevents the next USER_UPDATED from triggering refreshUser
+        const { data, error } = await SupabaseAdapter.updateProfile({ full_name: trimmedName });
+
         if (error) {
             console.error("Name update failed", error);
-            alert("Failed to update name");
+            skipNextRefreshRef.current = false; // Reset if error
+            alert("Unable to save name. Please check your connection.");
+            setIsUpdating(false);
         } else {
+            // Success: update local state instantly from returned optimistic data
             setIsEditing(false);
-            refreshUser();
-        }
-        setIsUpdating(false);
-    };
-
-    const refreshUser = async () => {
-        console.log("Refreshing user data...");
-        const u = await SupabaseAdapter.getUser();
-        if (u) {
-            const profile = await SupabaseAdapter.getProfile(u.id);
-            console.log("Fetched profile:", profile);
-            if (profile) {
-                u.user_metadata = { ...u.user_metadata, ...profile };
+            setIsUpdating(false);
+            if (data?.user) {
+                setUser(data.user);
+                previousUserRef.current = data.user;
             }
         }
-        setUser(u);
     };
 
-    // Sync with prop if parent updates
-    useEffect(() => {
-        if (initialUser !== undefined) {
-            setUser(initialUser);
-        }
-    }, [initialUser]);
+    const refreshingRef = useRef(false);
 
-    // Sync auth state
-    useEffect(() => {
-        let mounted = true;
+    const refreshUser = async (force = false) => {
+        if (refreshingRef.current) return;
 
-        async function checkUser() {
-            try {
-                const u = await SupabaseAdapter.getUser();
-                if (mounted && u) {
-                    // Try to fetch extended profile
-                    const profile = await SupabaseAdapter.getProfile(u.id);
-                    if (profile) {
-                        // Merge profile data into user metadata for display consistency
-                        u.user_metadata = { ...u.user_metadata, ...profile };
-                    }
-                    setUser(u);
-                }
-            } catch (e) {
-                console.error("Auth check failed:", e);
-            }
-        }
-        checkUser();
+        const now = Date.now();
+        // Throttle refreshes to once every 10 seconds unless forced
+        if (!force && (now - lastRefreshRef.current < 10000)) return;
 
-        let sub = null;
+        refreshingRef.current = true;
+        lastRefreshRef.current = now;
         try {
-            const result = SupabaseAdapter.onAuthStateChange((_event, session) => {
-                if (mounted) {
-                    const newUser = session?.user || null;
-                    const previousUser = previousUserRef.current;
-
-                    // Show welcome animation if user just logged in (was null, now has user)
-                    if (!previousUser && newUser && _event === 'SIGNED_IN') {
-                        setWelcomeUser(newUser);
-                        setShowWelcome(true);
-                    }
-
-                    previousUserRef.current = newUser;
-                    setUser(newUser);
-                }
-            });
-            // Handle both structure types just in case SDK version differs
-            if (result && result.data && result.data.subscription) {
-                sub = result.data.subscription;
-            } else if (result && result.unsubscribe) {
-                sub = result;
+            const u = await SupabaseAdapter.getUser();
+            if (u) {
+                setUser(u);
             }
-        } catch (e) {
-            console.warn("Supabase auth subscription failed (Config missing?):", e);
+            refreshingRef.current = false;
+        } catch (err) {
+            console.warn("Background refresh failed:", err);
+            refreshingRef.current = false;
         }
+    };
 
-        return () => {
-            mounted = false;
-            if (sub && typeof sub.unsubscribe === 'function') sub.unsubscribe();
-        };
+    // Authoritative user sync
+    useEffect(() => {
+        const unsubscribe = SupabaseAdapter.subscribe((u) => {
+            if (u) {
+                setUser(u);
+            }
+        });
+        return unsubscribe;
     }, []);
 
     const handleAuth = async (e) => {
@@ -157,6 +127,21 @@ export default function Profile({ initialUser = null }) {
         visible: { opacity: 1, x: 0 }
     };
 
+    // Checking Connection
+    const isConnected = SupabaseAdapter.isConnected();
+    const [connectionStatus, setConnectionStatus] = useState('checking');
+
+    useEffect(() => {
+        async function checkConnection() {
+            const { success, error } = await SupabaseAdapter.testConnection();
+            setConnectionStatus(success ? 'connected' : 'error');
+            if (!success) {
+                console.warn("Supabase connection check failed:", error);
+            }
+        }
+        checkConnection();
+    }, []);
+
     // Logged In View
     if (user) {
         const displayName = user.user_metadata?.full_name || user.email.split('@')[0];
@@ -179,7 +164,13 @@ export default function Profile({ initialUser = null }) {
                     variants={containerVariants}
                 >
                     <div className="text-center mb-3">
-                        <ProfilePhoto user={user} onUploadSuccess={refreshUser} />
+                        <ProfilePhoto
+                            user={user}
+                            onUploadSuccess={(updatedUser) => {
+                                if (updatedUser) setUser(updatedUser);
+                                else refreshUser(true);
+                            }}
+                        />
 
                         {isEditing ? (
                             <form onSubmit={handleUpdateName} className="mt-3 d-flex flex-column align-items-center gap-2">
@@ -232,21 +223,6 @@ export default function Profile({ initialUser = null }) {
             </>
         );
     }
-
-    // Checking Connection
-    const isConnected = SupabaseAdapter.isConnected();
-    const [connectionStatus, setConnectionStatus] = useState('checking');
-
-    useEffect(() => {
-        async function checkConnection() {
-            const { success, error } = await SupabaseAdapter.testConnection();
-            setConnectionStatus(success ? 'connected' : 'error');
-            if (!success) {
-                console.warn("Supabase connection check failed:", error);
-            }
-        }
-        checkConnection();
-    }, []);
 
     // Login View
     return (

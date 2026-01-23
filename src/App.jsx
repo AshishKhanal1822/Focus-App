@@ -104,54 +104,52 @@ function AppContent({ theme, toggleTheme }) {
     window.scrollTo(0, 0);
   }, [location.pathname]);
 
-  // Listen for login events to show welcome animation
+  // Real-time cross-device profile sync
   useEffect(() => {
-    let mounted = true;
-    let sub = null;
+    let channel = null;
 
-    const checkInitialUser = async () => {
-      const user = await SupabaseAdapter.getUser();
-      if (mounted) {
-        previousUserRef.current = user;
-        setUser(user);
-      }
-    };
-    checkInitialUser();
-
-    try {
-      const result = SupabaseAdapter.onAuthStateChange((event, session) => {
-        if (mounted) {
-          const newUser = session?.user || null;
-          const previousUser = previousUserRef.current;
-
-          // Show welcome animation if user just logged in (was null, now has user)
-          if (!previousUser && newUser && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
-            setWelcomeUser(newUser);
-            setShowWelcome(true);
-          }
-          setUser(newUser);
-
-          previousUserRef.current = newUser;
-        }
+    if (user?.id) {
+      channel = SupabaseAdapter.subscribeToProfile(user.id, (payload) => {
+        setUser(prevUser => {
+          if (!prevUser) return prevUser;
+          // Merge real-time DB changes into the current user object
+          return {
+            ...prevUser,
+            user_metadata: {
+              ...prevUser.user_metadata,
+              full_name: payload.full_name || prevUser.user_metadata.full_name,
+              avatar_url: payload.avatar_url || prevUser.user_metadata.avatar_url
+            }
+          };
+        });
       });
-
-      if (result && result.data && result.data.subscription) {
-        sub = result.data.subscription;
-      } else if (result && result.unsubscribe) {
-        sub = result;
-      }
-    } catch (e) {
-      // Auth listener error
     }
 
     return () => {
-      mounted = false;
-      if (sub && typeof sub.unsubscribe === 'function') {
-        sub.unsubscribe();
-      } else if (sub && sub.data && sub.data.subscription) {
-        sub.data.subscription.unsubscribe();
-      }
+      if (channel) channel.unsubscribe();
     };
+  }, [user?.id]);
+
+  // Authoritative User State Sync
+  useEffect(() => {
+    // This single subscription replaces all manual auth listeners in this file.
+    // It automatically handles initial state, logins, logouts, and token refreshes
+    // using the centralized enrichment logic in SupabaseAdapter.
+    const unsubscribe = SupabaseAdapter.subscribe((enrichedUser) => {
+      const previouslyUnauthenticated = !previousUserRef.current;
+
+      setUser(enrichedUser);
+
+      // Trigger welcome animation on transition from null to user
+      if (previouslyUnauthenticated && enrichedUser) {
+        setWelcomeUser(enrichedUser);
+        setShowWelcome(true);
+      }
+
+      previousUserRef.current = enrichedUser;
+    });
+
+    return unsubscribe;
   }, []);
 
   const handleNavClick = (path) => (e) => {

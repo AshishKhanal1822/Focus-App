@@ -4,9 +4,11 @@ import { createClient } from '@supabase/supabase-js';
 class SupabaseAdapter {
     constructor() {
         this.supabase = null;
+        this.subscribers = new Set();
         // Try to recover from local storage for instant first-frame layout
         const savedUser = localStorage.getItem('supabase_user_cache');
         this.cachedUser = savedUser ? JSON.parse(savedUser) : null;
+        this._enrichmentPromise = null;
         this.init();
     }
 
@@ -18,19 +20,63 @@ class SupabaseAdapter {
             try {
                 this.supabase = createClient(supabaseUrl, supabaseKey);
 
-                // Track auth state for caching
-                this.supabase.auth.onAuthStateChange((_event, session) => {
-                    this.cachedUser = session?.user || null;
-                    if (this.cachedUser) {
-                        localStorage.setItem('supabase_user_cache', JSON.stringify(this.cachedUser));
-                    } else {
+                // Track auth state for caching and notification
+                this.supabase.auth.onAuthStateChange(async (event, session) => {
+                    console.log(`Auth Event: ${event}`, session?.user?.id);
+
+                    if (event === 'SIGNED_OUT') {
+                        this.cachedUser = null;
+                        this._userFetchPromise = null;
                         localStorage.removeItem('supabase_user_cache');
+                        localStorage.removeItem('user_avatar_local');
+                        this.notifySubscribers(null);
+                        return;
+                    }
+
+                    // For login/refresh events, wait for enrichment BEFORE notifying
+                    if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+                        const user = await this.getUser(true); // Force fresh fetch + enrichment
+                        this.notifySubscribers(user);
+                    } else if (event === 'USER_UPDATED') {
+                        // User metadata changed (e.g. from updateProfile)
+                        const user = await this.getUser(true);
+                        this.notifySubscribers(user);
+                    }
+                });
+
+                // Periodic health check for profiles table
+                this.testConnection().then(async res => {
+                    if (res.success) {
+                        const { count, error } = await this.supabase
+                            .from('profiles')
+                            .select('*', { count: 'exact', head: true });
+
+                        if (error) {
+                            console.error("DATABASE HEALTH CHECK FAILED: 'profiles' table is not accessible.", error.message);
+                        } else {
+                            console.log(`DATABASE HEALTH CHECK: 'profiles' table found. Total system profiles: ${count || 0}`);
+                        }
+                    } else {
+                        console.warn("DATABASE HEALTH CHECK SKIPPED: Connection test failed.");
                     }
                 });
             } catch (err) {
-                // Silently fail if initialization error occurs
+                console.error("Supabase init error:", err);
             }
         }
+    }
+
+    subscribe(callback) {
+        this.subscribers.add(callback);
+        // Immediately provide current state
+        callback(this.cachedUser);
+        return () => this.subscribers.delete(callback);
+    }
+
+    notifySubscribers(user) {
+        this.subscribers.forEach(cb => {
+            try { cb(user); } catch (e) { console.error("Subscriber error:", e); }
+        });
     }
 
     isConnected() {
@@ -40,12 +86,17 @@ class SupabaseAdapter {
     async testConnection() {
         if (!this.supabase) return { success: false, error: 'Supabase not initialized' };
         try {
-            // Try to fetch something public or just check session
-            const { data, error } = await this.supabase.from('suggest_resources').select('count', { count: 'exact', head: true });
-            if (error) throw error;
+            // Test connection using the profiles table which is critical for the app
+            const { error } = await this.supabase.from('profiles').select('id').limit(1);
+            if (error) {
+                // Ignore 406 Not Acceptable if it's just an empty table, but catch real connection errors
+                if (error.code !== 'PGRST116' && error.code !== '42P01') {
+                    throw error;
+                }
+            }
             return { success: true };
         } catch (e) {
-            console.error("Connection test failed:", e);
+            console.warn("Connection test warning (non-critical):", e.message);
             return { success: false, error: e.message };
         }
     }
@@ -78,44 +129,163 @@ class SupabaseAdapter {
     }
 
     async signOut() {
+        console.log("SignOut initiated...");
         this.cachedUser = null;
-        localStorage.removeItem('supabase_user_cache');
+        this._userFetchPromise = null;
 
-        // Aggressively clear all Supabase-related keys from localStorage
-        // This prevents the client from automatically recovering the session on reload
-        const keysToRemove = [];
-        for (let i = 0; i < localStorage.length; i++) {
-            const key = localStorage.key(i);
-            if (key && (key.startsWith('sb-') || key.includes('supabase'))) {
-                keysToRemove.push(key);
+        // 1. Immediately clear all possible local identifiers
+        const localKeys = [
+            'supabase_user_cache',
+            'user_avatar_local',
+            'sb-access-token',
+            'sb-refresh-token'
+        ];
+        localKeys.forEach(k => localStorage.removeItem(k));
+
+        // 2. Aggressively clear any key with 'sb-' or 'supabase'
+        try {
+            const keysToRemove = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && (key.toLowerCase().includes('sb-') || key.toLowerCase().includes('supabase'))) {
+                    keysToRemove.push(key);
+                }
             }
+            keysToRemove.forEach(key => localStorage.removeItem(key));
+        } catch (e) {
+            console.warn("Storage clearing partially failed", e);
         }
-        keysToRemove.forEach(key => localStorage.removeItem(key));
 
-        if (!this.supabase) return { error: 'Supabase not configured' };
+        if (!this.supabase) return { success: true };
 
         try {
-            return await this.supabase.auth.signOut();
+            // 3. Attempt network signout but don't hang the UI
+            // We give the network 2 seconds to confirm, then we move on anyway
+            await Promise.race([
+                this.supabase.auth.signOut(),
+                new Promise((_, reject) => setTimeout(() => reject('timeout'), 2000))
+            ]).catch(err => console.warn("Network signout delayed/failed, proceeding locally:", err));
+
+            return { success: true };
         } catch (e) {
-            console.error("SignOut Exception:", e);
-            return { error: e.message };
+            return { success: true, error: e.message };
         }
     }
 
-    async getUser() {
-        if (!this.supabase) return null;
+    async getUser(force = false) {
+        if (!this.supabase) return this.cachedUser;
 
-        // Use auth.getUser() to get fresh state from server
-        // This ensures cross-device changes (like name) are reflected
-        const { data: { user }, error } = await this.supabase.auth.getUser();
-        if (error || !user) {
-            // If offline or error, fallback to cache if available
-            return this.cachedUser;
-        }
+        // Dedup active fetches
+        if (!force && this._userFetchPromise) return this._userFetchPromise;
 
-        this.cachedUser = user;
-        localStorage.setItem('supabase_user_cache', JSON.stringify(user));
-        return user;
+        this._userFetchPromise = (async () => {
+            try {
+                // 1. Get fresh user from Auth
+                const { data: { user }, error } = await this.supabase.auth.getUser();
+                if (error || !user) {
+                    this._userFetchPromise = null;
+                    if (error && error.message !== 'Auth session missing!') {
+                        console.warn("Auth.getUser error:", error.message);
+                    }
+                    return null;
+                }
+
+                // 2. Fetch profile from DB with retries
+                let profile = null;
+                let retries = 2;
+
+                while (retries > 0 && !profile) {
+                    try {
+                        const { data, error: profileError } = await Promise.race([
+                            this.supabase.from('profiles').select('*').eq('id', user.id).maybeSingle(),
+                            new Promise((_, reject) => setTimeout(() => reject('timeout'), 3000))
+                        ]);
+
+                        if (profileError) {
+                            console.warn(`Profile fetch attempt failed (${retries} left):`, {
+                                code: profileError.code,
+                                message: profileError.message
+                            });
+                        } else if (data) {
+                            console.log("Profile data found in DB:", data);
+                            profile = data;
+                            break;
+                        } else {
+                            console.log(`Profile fetch attempt [${retries}] returned no data for user ${user.id}`);
+                        }
+                    } catch (e) {
+                        console.warn(`Profile enrichment timeout (${retries} left)`);
+                    }
+                    if (!profile) {
+                        retries--;
+                        if (retries > 0) await new Promise(r => setTimeout(r, 500));
+                    }
+                }
+
+                if (!profile) {
+                    console.log("No profile found. Attempting lazy profile creation...");
+                    const initialData = {
+                        id: user.id,
+                        full_name: user.user_metadata?.full_name || user.email.split('@')[0],
+                        email: user.email,
+                        avatar_url: user.user_metadata?.avatar_url,
+                        updated_at: new Date().toISOString()
+                    };
+
+                    const { data: newData, error: createError } = await this.supabase
+                        .from('profiles')
+                        .upsert(initialData, { onConflict: 'id' })
+                        .select()
+                        .single();
+
+                    if (!createError) {
+                        console.log("Lazy profile sync/creation successful:", newData);
+                        profile = newData;
+                    } else {
+                        console.warn("Lazy profile sync failed:", createError.message);
+                    }
+                }
+
+                // Enrichment: STRICT priority for Database values over Auth Metadata
+                const dbName = profile?.full_name;
+                const dbAvatar = profile?.avatar_url;
+
+                // If DB has a value (even empty string), use it. Fallback to Auth only if DB is null/undefined.
+                const finalName = (dbName !== null && dbName !== undefined) ? dbName : (user.user_metadata?.full_name || user.email.split('@')[0]);
+
+                // For avatar: If DB has a value, use it. If DB is null, fallback to Auth (Google).
+                // This allows removing an avatar by setting it to empty string in DB.
+                const finalAvatar = (dbAvatar !== null && dbAvatar !== undefined) ? dbAvatar : user.user_metadata?.avatar_url;
+
+                user.user_metadata = {
+                    ...user.user_metadata,
+                    full_name: finalName,
+                    avatar_url: finalAvatar,
+                    _is_enriched: true
+                };
+
+                console.log(`User ${user.id} enriched. Avatar Source: ${dbAvatar ? 'DB' : 'Auth/Google'}. URL: ${finalAvatar}`);
+
+                this.cachedUser = user;
+                localStorage.setItem('supabase_user_cache', JSON.stringify(user));
+
+                // Sync local storage fallback
+                if (finalAvatar) {
+                    localStorage.setItem('user_avatar_local', finalAvatar);
+                } else {
+                    localStorage.removeItem('user_avatar_local');
+                }
+
+                this._userFetchPromise = null;
+                return user;
+            } catch (e) {
+                console.error("getUser critical failure:", e);
+                this._userFetchPromise = null;
+                return this.cachedUser;
+            }
+        })();
+
+        return this._userFetchPromise;
     }
 
     onAuthStateChange(callback) {
@@ -126,52 +296,95 @@ class SupabaseAdapter {
     // --- Database Methods (Examples) ---
 
     async updateProfile(updates) {
-        console.log("updateProfile called with:", Object.keys(updates));
+        console.log("updateProfile initiated:", Object.keys(updates));
         if (!this.supabase) return { error: { message: 'Supabase not configured' } };
 
         try {
-            // 1. Get current user
-            const { data: { user } } = await this.supabase.auth.getUser();
-            if (!user) throw new Error("Session expired. Please sign out and sign in again.");
+            // 1. Resolve user ID as fast as possible from cache
+            const user = this.cachedUser;
+            if (!user?.id) throw new Error("No active session found in cache.");
 
-            // 2. Update Auth Metadata (for immediate UI update and basic info)
-            const { avatar_url, full_name, ...otherUpdates } = updates;
+            const { avatar_url, full_name } = updates;
+
+            // 2. CONSTRUCT UPDATED USER IMMEDIATELY (Optimistic Update)
             const authUpdates = {};
             if (full_name !== undefined) authUpdates.full_name = full_name;
             if (avatar_url !== undefined) authUpdates.avatar_url = avatar_url;
 
-            if (Object.keys(authUpdates).length > 0) {
-                await this.supabase.auth.updateUser({
-                    data: authUpdates
-                });
-            }
+            const updatedUser = {
+                ...user,
+                user_metadata: {
+                    ...user.user_metadata,
+                    ...authUpdates
+                }
+            };
 
-            // 3. Update Profiles Table (for persistent cross-device storage)
-            const { error: profileError } = await this.supabase
-                .from('profiles')
-                .upsert({
-                    id: user.id,
-                    full_name: full_name !== undefined ? full_name : undefined,
-                    avatar_url: avatar_url !== undefined ? avatar_url : undefined,
-                    updated_at: new Date().toISOString(),
-                });
-
-            if (profileError) {
-                console.error("Profile table update failed:", profileError);
-                // We continue because auth metadata might have worked
-            }
-
-            // Refresh cached user
-            const { data: { user: updatedUser } } = await this.supabase.auth.getUser();
+            // Update local state and storage INSTANTLY
             this.cachedUser = updatedUser;
-            if (updatedUser) {
-                localStorage.setItem('supabase_user_cache', JSON.stringify(updatedUser));
-            }
+            localStorage.setItem('supabase_user_cache', JSON.stringify(updatedUser));
+            this.notifySubscribers(updatedUser);
 
+            // 3. FIRE AND FORGET CLOUD UPDATES (Background Sync)
+            const cloudSync = async () => {
+                try {
+                    console.log("Cloud Sync starting for user:", user.id);
+
+                    // Verify session is still valid
+                    const { data: { session } } = await this.supabase.auth.getSession();
+                    if (!session) {
+                        console.error("Cloud Sync aborted: No active session found.");
+                        return;
+                    }
+
+                    // Update Auth Metadata first as it's the fastest
+                    if (Object.keys(authUpdates).length > 0) {
+                        console.log("Updating Auth Metadata...");
+                        const { error: authError } = await this.supabase.auth.updateUser({ data: authUpdates });
+                        if (authError) console.warn("Auth Metadata update warning:", authError.message);
+                    }
+
+                    const dbUpdates = {
+                        id: user.id,
+                        updated_at: new Date().toISOString(),
+                        ...(full_name !== undefined && { full_name }),
+                        ...(avatar_url !== undefined && { avatar_url })
+                    };
+
+                    console.log(`Syncing to DB [${user.id}]:`, dbUpdates);
+
+                    // Use upsert with select() to verify what was written
+                    const { data: dbData, error: dbError } = await this.supabase
+                        .from('profiles')
+                        .upsert(dbUpdates, { onConflict: 'id' })
+                        .select();
+
+                    if (dbError) {
+                        console.error("DATABASE UPDATE FAILED:", {
+                            message: dbError.message,
+                            code: dbError.code
+                        });
+                        return { error: dbError };
+                    }
+
+                    if (!dbData || dbData.length === 0) {
+                        console.error("DATABASE UPDATE WARNING: Success reported but 0 rows affected/returned. RLS might be blocking or ID mismatch.");
+                    } else {
+                        console.log("Cloud sync successful. Rows updated:", dbData.length, "Data:", dbData[0]);
+
+                        // Valid update - Enrich and notify
+                        const final = await this.getUser(true);
+                        this.notifySubscribers(final);
+                    }
+                } catch (e) {
+                    console.error("Cloud sync exception:", e);
+                }
+            };
+
+            cloudSync();
             return { data: { user: updatedUser }, error: null };
 
         } catch (e) {
-            console.error("updateProfile logic error:", e);
+            console.error("updateProfile failed:", e);
             return { data: null, error: e };
         }
     }
@@ -183,13 +396,49 @@ class SupabaseAdapter {
                 .from('profiles')
                 .select('*')
                 .eq('id', userId)
-                .single();
+                .maybeSingle();
 
             if (error) return null;
             return data;
         } catch (e) {
             return null;
         }
+    }
+
+    // Subscribe to real-time changes for cross-device sync
+    subscribeToProfile(userId, onUpdate) {
+        if (!this.supabase || !userId) return null;
+
+        return this.supabase
+            .channel(`profile_sync_${userId}`)
+            .on(
+                'postgres_changes',
+                {
+                    event: 'UPDATE',
+                    schema: 'public',
+                    table: 'profiles',
+                    filter: `id=eq.${userId}`
+                },
+                (payload) => {
+                    console.log("Real-time profile update received:", payload.new);
+                    // Update cache and notify everyone
+                    if (this.cachedUser && this.cachedUser.id === userId) {
+                        const updatedUser = {
+                            ...this.cachedUser,
+                            user_metadata: {
+                                ...this.cachedUser.user_metadata,
+                                full_name: payload.new.full_name || this.cachedUser.user_metadata.full_name,
+                                avatar_url: payload.new.avatar_url || this.cachedUser.user_metadata.avatar_url,
+                                _is_enriched: true
+                            }
+                        };
+                        this.cachedUser = updatedUser;
+                        localStorage.setItem('supabase_user_cache', JSON.stringify(updatedUser));
+                        this.notifySubscribers(updatedUser);
+                    }
+                }
+            )
+            .subscribe();
     }
 }
 

@@ -9,14 +9,24 @@ export default function ProfilePhoto({ user, onUploadSuccess }) {
     const [capturedImage, setCapturedImage] = useState(null);
     const [loading, setLoading] = useState(false);
     const [showCamera, setShowCamera] = useState(false);
+    const [loadFailed, setLoadFailed] = useState(false);
     const videoRef = useRef(null);
     const canvasRef = useRef(null);
     const fileInputRef = useRef(null);
 
     const localAvatar = localStorage.getItem('user_avatar_local');
     // Prioritize user metadata (cloud sync) over local fallback
-    const avatarUrl = user?.user_metadata?.avatar_url || localAvatar;
+    const rawUrl = user?.user_metadata?.avatar_url || localAvatar;
+
+    // Use a stable URL. Cache busting is handled via the user's updated_at timestamp if available.
+    const avatarUrl = rawUrl;
+
     const initials = user?.email ? user.email[0].toUpperCase() : 'U';
+
+    // Reset failure state if URL is updated to something new
+    useEffect(() => {
+        setLoadFailed(false);
+    }, [avatarUrl]);
 
     // Connect stream to video element whenever stream changes or view appears
     useEffect(() => {
@@ -57,7 +67,7 @@ export default function ProfilePhoto({ user, onUploadSuccess }) {
             if (!canvas) return; // Guard clause
 
             const context = canvas.getContext('2d');
-            const size = 100;
+            const size = 300;
             canvas.width = size;
             canvas.height = size;
 
@@ -109,56 +119,121 @@ export default function ProfilePhoto({ user, onUploadSuccess }) {
 
     const handleSave = async () => {
         if (!capturedImage) return;
+
         setLoading(true);
 
-        try {
-            // Convert base64 to blob
-            const response = await fetch(capturedImage);
-            const blob = await response.blob();
+        // 1. LOCAL-ONLY OPTIMISTIC UPDATE
+        // We update the local storage and component state, but we DO NOT 
+        // save the heavy Base64 string to the Supabase database.
+        localStorage.setItem('user_avatar_local', capturedImage);
 
-            // Create a unique filename
-            const fileName = `${user.id}/avatar-${Date.now()}.jpg`;
+        // Notify other components (using a local-only enriched object)
+        const localEnrichedUser = {
+            ...user,
+            user_metadata: {
+                ...user.user_metadata,
+                avatar_url: capturedImage
+            }
+        };
 
-            // Upload to Supabase Storage
-            const client = SupabaseAdapter.getClient();
-            const { data: uploadData, error: uploadError } = await client.storage
-                .from('avatars')
-                .upload(fileName, blob, {
-                    contentType: 'image/jpeg',
-                    upsert: true
+        // Use the adapter's internal cache update to notify others without DB hit
+        SupabaseAdapter.cachedUser = localEnrichedUser;
+        SupabaseAdapter.notifySubscribers(localEnrichedUser);
+
+        // Snapshot the image for the background sync before we clear it from UI
+        const imageToUpload = capturedImage;
+
+        // Reset local UI
+        setCapturedImage(null);
+        if (onUploadSuccess) onUploadSuccess(localEnrichedUser);
+
+        // 2. BACKGROUND CLOUD SYNC: Upload to storage and update URL without blocking
+        const syncToCloud = async () => {
+            try {
+                console.log("Cloud Sync: Step 1 - Starting fetch of image data...");
+                const response = await fetch(imageToUpload);
+                console.log("Cloud Sync: Step 2 - Fetch complete, converting to blob...");
+                const blob = await response.blob();
+                const kbSize = (blob.size / 1024).toFixed(2);
+                console.log(`Cloud Sync: Step 3 - Blob created (${kbSize} KB). Preparing upload...`);
+
+                // Flat filename for compatibility
+                const fileName = `avatar-${user.id}-${Date.now()}.jpg`;
+                // ALTERNATIVE UPLOAD: Direct REST API call (Bypasses SDK issues)
+                console.log("Cloud Sync: Step 4 - Initiating upload via Direct REST API...");
+
+                const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+                const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+                const uploadUrl = `${supabaseUrl}/storage/v1/object/avatars/${fileName}`;
+
+                const uploadResponse = await fetch(uploadUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${supabaseKey}`,
+                        'apikey': supabaseKey,
+                        'Content-Type': 'image/jpeg',
+                        'x-upsert': 'true'
+                    },
+                    body: blob
                 });
 
-            if (uploadError) {
-                throw uploadError;
+                if (!uploadResponse.ok) {
+                    const errorText = await uploadResponse.text();
+                    console.error("Direct Upload Failed:", errorText);
+                    throw new Error(`Upload failed: ${uploadResponse.status} ${uploadResponse.statusText}`);
+                }
+
+                // Construct public URL manually since we bypassed the SDK
+                const publicUrl = `${supabaseUrl}/storage/v1/object/public/avatars/${fileName}`;
+
+                console.log("Cloud Sync: File uploaded successfully!");
+                console.log("Cloud Sync: Public URL:", publicUrl);
+
+                // 3. FINALIZE DB RECORD
+                console.log("Cloud Sync: Updating database with new avatar URL...");
+                const updateResult = await SupabaseAdapter.updateProfile({ avatar_url: publicUrl });
+
+                // 3. FINALIZE DB RECORD - DIRECT UPDATE (Bypass Adapter)
+                console.log("Cloud Sync: Updating database directly with new avatar URL...");
+
+                // Get fresh client to ensure we are not using a stale one
+                const dbClient = SupabaseAdapter.getClient();
+
+                const { data: dbData, error: dbError } = await dbClient
+                    .from('profiles')
+                    .upsert({
+                        id: user.id,
+                        avatar_url: publicUrl,
+                        updated_at: new Date().toISOString(),
+                        email: user.email // Ensure required fields
+                    })
+                    .select();
+
+                if (dbError) {
+                    console.error("Cloud Sync: DB Update Failed:", dbError);
+                    throw dbError;
+                }
+
+                console.log("Cloud Sync: Database updated successfully! Rows:", dbData?.length);
+
+                // NOW notify the adapter to update its cache
+                // We do this manually since we bypassed the adapter's update method
+                SupabaseAdapter.cachedUser = {
+                    ...user,
+                    user_metadata: { ...user.user_metadata, avatar_url: publicUrl }
+                };
+                SupabaseAdapter.notifySubscribers(SupabaseAdapter.cachedUser);
+
+                localStorage.setItem('user_avatar_local', publicUrl);
+                console.info("Cloud Sync: ✅ Avatar successfully synced across Cloud & DB.");
+            } catch (err) {
+                console.warn("Cloud Sync: Upload deferred (using local cache):", err.message || err);
+            } finally {
+                setLoading(false);
             }
+        };
 
-            // Get public URL
-            const { data: urlData } = client.storage
-                .from('avatars')
-                .getPublicUrl(fileName);
-
-            const publicUrl = urlData.publicUrl;
-
-            // Save URL to profile
-            await SupabaseAdapter.updateProfile({ avatar_url: publicUrl });
-
-            // Save locally as backup
-            localStorage.setItem('user_avatar_local', publicUrl);
-
-            setLoading(false);
-            setCapturedImage(null);
-            eventBus.emit('PROFILE_UPDATED');
-            if (onUploadSuccess) onUploadSuccess();
-        } catch (error) {
-            console.error("Failed to upload avatar:", error);
-
-            // Fallback: Save locally only
-            localStorage.setItem('user_avatar_local', capturedImage);
-            setLoading(false);
-            setCapturedImage(null);
-            eventBus.emit('PROFILE_UPDATED');
-            if (onUploadSuccess) onUploadSuccess();
-        }
+        syncToCloud();
     };
 
     return (
@@ -184,13 +259,19 @@ export default function ProfilePhoto({ user, onUploadSuccess }) {
 
                 {/* 3. Default Avatar (Fallback) */}
                 {!showCamera && !capturedImage && (
-                    <div className="w-100 h-100 d-flex align-items-center justify-content-center">
-                        {avatarUrl ? (
-                            <img src={avatarUrl} alt="Profile" className="w-100 h-100 object-fit-cover" />
+                    <div className="w-100 h-100 d-flex align-items-center justify-content-center bg-primary bg-opacity-10 text-primary">
+                        {avatarUrl && !loadFailed ? (
+                            <img
+                                src={avatarUrl}
+                                alt="Profile"
+                                className="w-100 h-100 object-fit-cover shadow-inner"
+                                onError={(e) => {
+                                    console.warn(`Avatar load failed for URL: ${avatarUrl}`, e);
+                                    setLoadFailed(true);
+                                }}
+                            />
                         ) : (
-                            <div className="w-100 h-100 bg-primary bg-opacity-10 text-primary d-flex align-items-center justify-content-center">
-                                <span className="fs-2 fw-bold">{initials}</span>
-                            </div>
+                            <span className="fs-2 fw-bold">{initials}</span>
                         )}
                     </div>
                 )}
