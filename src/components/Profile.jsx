@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import SupabaseAdapter from '../agents/adapters/SupabaseAdapter.js';
 import ProfilePhoto from './ProfilePhoto.jsx';
-import WelcomeAnimation from './WelcomeAnimation.jsx';
 import { motion } from 'framer-motion';
 import {
     User, Mail, ShieldCheck,
@@ -15,8 +14,6 @@ export default function Profile({ initialUser = null }) {
     const [message, setMessage] = useState('');
     const [user, setUser] = useState(initialUser);
     const [loading, setLoading] = useState(false);
-    const [showWelcome, setShowWelcome] = useState(false);
-    const [welcomeUser, setWelcomeUser] = useState(null);
     const [isEditing, setIsEditing] = useState(false);
     const [newName, setNewName] = useState('');
     const [isUpdating, setIsUpdating] = useState(false);
@@ -98,11 +95,7 @@ export default function Profile({ initialUser = null }) {
                 setMessage('Check your email for confirmation link!');
             } else {
                 setMessage('Success!');
-                // Show welcome animation on successful login
-                if (isLogin && data.user) {
-                    setWelcomeUser(data.user);
-                    setShowWelcome(true);
-                }
+                    // Welcome animation is handled globally in App.jsx on auth state change
             }
         }
         setLoading(false);
@@ -147,22 +140,12 @@ export default function Profile({ initialUser = null }) {
         const displayName = user.user_metadata?.full_name || user.email.split('@')[0];
 
         return (
-            <>
-                {showWelcome && welcomeUser && (
-                    <WelcomeAnimation
-                        user={welcomeUser}
-                        onComplete={() => {
-                            setShowWelcome(false);
-                            setWelcomeUser(null);
-                        }}
-                    />
-                )}
-                <motion.div
-                    className="p-3"
-                    initial="hidden"
-                    animate="visible"
-                    variants={containerVariants}
-                >
+            <motion.div
+                className="p-3"
+                initial="hidden"
+                animate="visible"
+                variants={containerVariants}
+            >
                     <div className="text-center mb-3">
                         <ProfilePhoto
                             user={user}
@@ -220,7 +203,6 @@ export default function Profile({ initialUser = null }) {
                         <span style={{ fontSize: '0.7rem' }}>Cloud sync active</span>
                     </div>
                 </motion.div>
-            </>
         );
     }
 

@@ -18,6 +18,7 @@ function Writing() {
     const [isFullScreen, setIsFullScreen] = useState(false);
     const [showPrompts, setShowPrompts] = useState(false);
     const [savedStatus, setSavedStatus] = useState('');
+    const [isSaving, setIsSaving] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [lastSaved, setLastSaved] = useState(null);
     const [isCloudSynced, setIsCloudSynced] = useState(false);
@@ -69,7 +70,7 @@ function Writing() {
     }, []);
 
     const handleSave = async () => {
-        setIsLoading(true);
+        setIsSaving(true);
         setSavedStatus('Saving...');
 
         // 1. Save Local (Backup)
@@ -84,30 +85,22 @@ function Writing() {
             if (user) {
                 const client = SupabaseAdapter.getClient();
 
-                // Upsert strategy
-                const { data: existing } = await client
+                // Upsert by user_id so each user has a single latest writing entry
+                const { error } = await client
                     .from('writings')
-                    .select('id')
-                    .eq('user_id', user.id)
-                    .limit(1)
-                    .single();
-
-                let error;
-                if (existing) {
-                    const result = await client
-                        .from('writings')
-                        .update({ content: text, title: title, updated_at: new Date() })
-                        .eq('id', existing.id);
-                    error = result.error;
-                } else {
-                    const result = await client
-                        .from('writings')
-                        .insert([{ user_id: user.id, content: text, title: title }]);
-                    error = result.error;
-                }
+                    .upsert(
+                        {
+                            user_id: user.id,
+                            content: text,
+                            title: title,
+                            updated_at: new Date().toISOString()
+                        },
+                        { onConflict: 'user_id' }
+                    );
 
                 if (error) throw error;
-                setLastSaved(new Date());
+                const now = new Date();
+                setLastSaved(now);
                 setSavedStatus('Saved to Cloud!');
             } else {
                 setSavedStatus('Saved Locally');
@@ -115,14 +108,14 @@ function Writing() {
         } catch (e) {
             console.error("Cloud save failed, queueing for sync:", e);
             setSavedStatus('Saved Locally (Sync Pending)');
-
             // Queue for background sync
             import('./agents/core/SyncAgent.js').then(m => {
                 m.default.addToQueue('writing', 'save', { content: text, title: title });
             });
         } finally {
-            setIsLoading(false);
-            setTimeout(() => setSavedStatus(''), 3000);
+            setIsSaving(false);
+            // Hide the status a short time after showing the final result
+            setTimeout(() => setSavedStatus(''), 2000);
         }
     };
 
@@ -238,7 +231,21 @@ function Writing() {
                             onChange={(e) => setTitle(e.target.value)}
                         />
                         <span className="fw-bold text-primary">{wordCount} words</span>
-                        {savedStatus && <span className="text-success d-flex align-items-center gap-1"><Check size={14} /> {savedStatus}</span>}
+                        {savedStatus && (
+                            <span className="d-flex align-items-center gap-1 small">
+                                {isSaving ? (
+                                    <>
+                                        <span className="spinner-border spinner-border-sm text-primary" role="status" aria-hidden="true" />
+                                        <span className="text-primary">{savedStatus}</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Check size={14} className="text-success" />
+                                        <span className="text-success">{savedStatus}</span>
+                                    </>
+                                )}
+                            </span>
+                        )}
                     </div>
                     <div className="d-flex gap-2">
                         <button className="btn btn-sm bg-light border-0 rounded-circle p-2 hover-scale text-body" onClick={handleSave} title="Save Draft" aria-label="Save Draft">

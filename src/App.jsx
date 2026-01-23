@@ -55,6 +55,7 @@ function AppContent({ theme, toggleTheme }) {
   const [welcomeUser, setWelcomeUser] = useState(null);
   const [user, setUser] = useState(null);
   const previousUserRef = useRef(null);
+  const initialAuthHandledRef = useRef(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [showSyncSuccess, setShowSyncSuccess] = useState(false);
 
@@ -138,9 +139,18 @@ function AppContent({ theme, toggleTheme }) {
     const unsubscribe = SupabaseAdapter.subscribe((enrichedUser) => {
       const previouslyUnauthenticated = !previousUserRef.current;
 
+      // Skip the very first callback on mount (initial cached state),
+      // so we don't show the welcome animation on page reload.
+      if (!initialAuthHandledRef.current) {
+        previousUserRef.current = enrichedUser;
+        setUser(enrichedUser);
+        initialAuthHandledRef.current = true;
+        return;
+      }
+
       setUser(enrichedUser);
 
-      // Trigger welcome animation on transition from null to user
+      // Trigger welcome animation only on true login transition (null -> user)
       if (previouslyUnauthenticated && enrichedUser) {
         setWelcomeUser(enrichedUser);
         setShowWelcome(true);

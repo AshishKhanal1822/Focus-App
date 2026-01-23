@@ -151,26 +151,20 @@ export class SyncAgent extends BaseAgent {
     async syncWriting(item, userId, client) {
         const { data } = item;
 
-        // Upsert strategy for writing
-        const { data: existing } = await client
+        // Single-row upsert per user_id so cloud always reflects latest writing
+        const { error } = await client
             .from('writings')
-            .select('id')
-            .eq('user_id', userId)
-            .limit(1)
-            .single();
+            .upsert(
+                {
+                    user_id: userId,
+                    content: data.content,
+                    title: data.title,
+                    updated_at: new Date().toISOString()
+                },
+                { onConflict: 'user_id' }
+            );
 
-        if (existing) {
-            const { error } = await client
-                .from('writings')
-                .update({ content: data.content, title: data.title, updated_at: new Date() })
-                .eq('id', existing.id);
-            return !error;
-        } else {
-            const { error } = await client
-                .from('writings')
-                .insert([{ user_id: userId, content: data.content, title: data.title }]);
-            return !error;
-        }
+        return !error;
     }
 }
 
