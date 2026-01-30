@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PenTool, Save, Trash2, Maximize2, Minimize2, Sparkles, Copy, Check } from 'lucide-react';
+import SupabaseAdapter from './agents/adapters/SupabaseAdapter.js';
+import SyncAgent from './agents/core/SyncAgent.js';
 
 const prompts = [
     "What is one thing you would change about the world today?",
@@ -29,94 +31,161 @@ function Writing() {
         setWordCount(words);
     }, [text]);
 
+    // Load from Cloud (Supabase) via Subscription
     useEffect(() => {
-        const loadContent = async () => {
-            setIsLoading(true);
-            try {
-                // First check local backup
-                const localDraft = localStorage.getItem('focus_writing_draft');
-                const localTitle = localStorage.getItem('focus_writing_title');
-                if (localDraft) setText(localDraft);
-                if (localTitle) setTitle(localTitle);
+        let mounted = true;
+        let lastUserId = null;
 
-                // Then try to fetch from cloud
-                const user = await import('./agents/adapters/SupabaseAdapter.js').then(m => m.default.getUser());
-                if (user) {
-                    setIsCloudSynced(true);
-                    const client = await import('./agents/adapters/SupabaseAdapter.js').then(m => m.default.getClient());
-                    const { data, error } = await client
-                        .from('writings')
-                        .select('content, title, updated_at')
-                        .eq('user_id', user.id)
-                        .order('updated_at', { ascending: false })
-                        .limit(1)
-                        .single();
+        const unsubscribe = SupabaseAdapter.subscribe(async (user) => {
+            if (!mounted) return;
 
-                    if (data) {
-                        if (data.content) setText(data.content);
-                        if (data.title) setTitle(data.title);
-                        setLastSaved(new Date(data.updated_at));
+            // Only fetch if user identity changes to avoid overwriting typed content
+            if (user?.id !== lastUserId) {
+                lastUserId = user?.id || null;
+                setIsLoading(true);
+
+                try {
+                    // Always checking local backup first (Standard Local Storage)
+                    const localDraft = localStorage.getItem('focus_writing_draft');
+                    const localTitle = localStorage.getItem('focus_writing_title');
+
+                    if (mounted) {
+                        if (localDraft) setText(localDraft);
+                        if (localTitle) setTitle(localTitle);
                     }
-                } else {
-                    setIsCloudSynced(false);
+
+                    if (user) {
+                        setIsCloudSynced(true);
+
+                        // CHECK SYNC QUEUE: If we have pending writes, Cloud is STALE. ignore it.
+                        const queue = SyncAgent.getQueue();
+                        const hasPendingWrites = queue.some(item => item.type === 'writing' && item.action === 'save');
+
+                        if (hasPendingWrites) {
+                            console.log("Pending writes found in queue. Using local draft instead of cloud data.");
+                            setSavedStatus('Sync Pending...');
+                        } else {
+                            // No pending writes, safe to fetch from Cloud
+                            const { data } = await SupabaseAdapter.getClient()
+                                .from('writings')
+                                .select('content, title, updated_at')
+                                .eq('user_id', user.id)
+                                .order('updated_at', { ascending: false })
+                                .limit(1)
+                                .single();
+
+                            if (mounted && data) {
+                                // Only overwrite if cloud data actually exists
+                                if (data.content) setText(data.content);
+                                if (data.title) setTitle(data.title);
+                                setLastSaved(new Date(data.updated_at));
+                            }
+                        }
+                    } else {
+                        setIsCloudSynced(false);
+                    }
+                } catch (e) {
+                    console.error("Error loading writing:", e);
+                } finally {
+                    if (mounted) setIsLoading(false);
                 }
-            } catch (e) {
-                console.error("Error loading writing:", e);
-            } finally {
-                setIsLoading(false);
             }
+        });
+
+        return () => {
+            mounted = false;
+            unsubscribe();
         };
-        loadContent();
     }, []);
 
     const handleSave = async () => {
         setIsSaving(true);
         setSavedStatus('Saving...');
+        const currentText = text;
+        const currentTitle = title;
 
-        // 1. Save Local (Backup)
-        localStorage.setItem('focus_writing_draft', text);
-        localStorage.setItem('focus_writing_title', title);
+        // 1. Save Local (Backup) Immediately
+        localStorage.setItem('focus_writing_draft', currentText);
+        localStorage.setItem('focus_writing_title', currentTitle);
 
-        try {
-            // 2. Save Cloud if logged in
-            const SupabaseAdapter = await import('./agents/adapters/SupabaseAdapter.js').then(m => m.default);
-            const user = await SupabaseAdapter.getUser();
+        // 2. Perform Cloud Save
+        // Use an IIFE to allow async logic without blocking the 'Saving...' UI update
+        (async () => {
+            try {
+                // Use the already imported SupabaseAdapter (Static)
+                // Access cachedUser directly which is synchronous and fast
+                const user = SupabaseAdapter.cachedUser;
 
-            if (user) {
-                const client = SupabaseAdapter.getClient();
+                if (user) {
+                    const client = SupabaseAdapter.getClient();
 
-                // Upsert by user_id so each user has a single latest writing entry
-                const { error } = await client
-                    .from('writings')
-                    .upsert(
-                        {
-                            user_id: user.id,
-                            content: text,
-                            title: title,
-                            updated_at: new Date().toISOString()
-                        },
-                        { onConflict: 'user_id' }
-                    );
+                    // Manual Upsert to handle missing unique constraint on user_id
+                    // 1. Check if record exists
+                    const { data: existingData, error: fetchError } = await client
+                        .from('writings')
+                        .select('id')
+                        .eq('user_id', user.id)
+                        .maybeSingle(); // Use maybeSingle to avoid errors if 0 rows
 
-                if (error) throw error;
-                const now = new Date();
-                setLastSaved(now);
-                setSavedStatus('Saved to Cloud!');
-            } else {
-                setSavedStatus('Saved Locally');
+                    if (fetchError && !fetchError.message?.includes('network')) {
+                        console.warn("Error checking existing writing:", fetchError);
+                    }
+
+                    let error;
+
+                    if (existingData?.id) {
+                        // 2. Update existing
+                        const { error: updateError } = await client
+                            .from('writings')
+                            .update({
+                                content: currentText,
+                                title: currentTitle,
+                                updated_at: new Date().toISOString()
+                            })
+                            .eq('id', existingData.id);
+                        error = updateError;
+                    } else {
+                        // 3. Insert new
+                        const { error: insertError } = await client
+                            .from('writings')
+                            .insert([{
+                                user_id: user.id,
+                                content: currentText,
+                                title: currentTitle,
+                                updated_at: new Date().toISOString()
+                            }]);
+                        error = insertError;
+                    }
+
+                    if (error) {
+                        // Check for network errors speifically to differentiate
+                        if (error.message && (error.message.includes('fetch') || error.message.includes('network'))) {
+                            throw error; // Let the catch block handle the queueing
+                        }
+                        console.error("Database error:", error);
+                        setSavedStatus('Error Saving');
+                    } else {
+                        const now = new Date();
+                        setLastSaved(now);
+                        setSavedStatus('Saved to Cloud!');
+                    }
+                } else {
+                    // Not logged in
+                    setSavedStatus('Saved Locally');
+                }
+            } catch (e) {
+                console.warn("Cloud save failed (network/latency), queueing for sync:", e);
+                setSavedStatus('Saved Locally (Sync Pending)');
+
+                // Queue for background sync
+                import('./agents/core/SyncAgent.js').then(m => {
+                    m.default.addToQueue('writing', 'save', { content: currentText, title: currentTitle });
+                });
+            } finally {
+                setIsSaving(false);
+                setTimeout(() => setSavedStatus(''), 2000);
             }
-        } catch (e) {
-            console.error("Cloud save failed, queueing for sync:", e);
-            setSavedStatus('Saved Locally (Sync Pending)');
-            // Queue for background sync
-            import('./agents/core/SyncAgent.js').then(m => {
-                m.default.addToQueue('writing', 'save', { content: text, title: title });
-            });
-        } finally {
-            setIsSaving(false);
-            // Hide the status a short time after showing the final result
-            setTimeout(() => setSavedStatus(''), 2000);
-        }
+        })();
     };
 
     const handleClear = async () => {

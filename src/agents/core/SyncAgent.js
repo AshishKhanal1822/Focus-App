@@ -151,20 +151,51 @@ export class SyncAgent extends BaseAgent {
     async syncWriting(item, userId, client) {
         const { data } = item;
 
-        // Single-row upsert per user_id so cloud always reflects latest writing
-        const { error } = await client
-            .from('writings')
-            .upsert(
-                {
-                    user_id: userId,
-                    content: data.content,
-                    title: data.title,
-                    updated_at: new Date().toISOString()
-                },
-                { onConflict: 'user_id' }
-            );
+        // Manual Upsert Logic to handle missing unique constraints
+        try {
+            // 1. Check if record exists for this user
+            const { data: existingData } = await client
+                .from('writings')
+                .select('id')
+                .eq('user_id', userId)
+                .maybeSingle();
 
-        return !error;
+            let error;
+
+            if (existingData?.id) {
+                // 2. Update existing
+                const { error: updateError } = await client
+                    .from('writings')
+                    .update({
+                        content: data.content,
+                        title: data.title,
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('id', existingData.id);
+                error = updateError;
+            } else {
+                // 3. Insert new
+                const { error: insertError } = await client
+                    .from('writings')
+                    .insert([{
+                        user_id: userId,
+                        content: data.content,
+                        title: data.title,
+                        updated_at: new Date().toISOString()
+                    }]);
+                error = insertError;
+            }
+
+            if (error) {
+                console.error("Sync writing db error:", error);
+                return false;
+            }
+            return true;
+
+        } catch (e) {
+            console.error("Sync writing exception:", e);
+            return false;
+        }
     }
 }
 

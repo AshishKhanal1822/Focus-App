@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import SupabaseAdapter from './agents/adapters/SupabaseAdapter.js';
+import SyncAgent from './agents/core/SyncAgent.js';
 
 function Todo() {
     const [tasks, setTasks] = useState([]);
@@ -7,29 +8,82 @@ function Todo() {
     const [isCloud, setIsCloud] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
 
-    // Initial Load
+    // Initial Load & Auth Subscription
     useEffect(() => {
-        const loadTasks = async () => {
-            setIsLoading(true);
-            const user = await SupabaseAdapter.getUser();
+        let mounted = true;
+        let lastUserId = null;
 
-            if (user) {
-                setIsCloud(true);
-                const { data } = await SupabaseAdapter.getClient()
-                    .from('tasks')
-                    .select('*')
-                    .eq('user_id', user.id)
-                    .order('created_at', { ascending: true });
+        const unsubscribe = SupabaseAdapter.subscribe(async (user) => {
+            if (!mounted) return;
 
-                if (data) setTasks(data);
-            } else {
-                // Load from LocalStorage
-                const savedTasks = localStorage.getItem('tasks');
-                if (savedTasks) setTasks(JSON.parse(savedTasks));
+            // Only re-fetch if user ID changed
+            if (user?.id !== lastUserId) {
+                lastUserId = user?.id || null;
+                setIsLoading(true);
+
+                try {
+                    if (user) {
+                        setIsCloud(true);
+                        const { data } = await SupabaseAdapter.getClient()
+                            .from('tasks')
+                            .select('*')
+                            .eq('user_id', user.id)
+                            .order('created_at', { ascending: true });
+
+                        if (mounted) {
+                            let mergedTasks = data || [];
+
+                            // MERGE PENDING QUEUE ITEMS (Offline Persistence)
+                            try {
+                                const queue = SyncAgent.getQueue();
+                                const pendingTodos = queue.filter(item => item.type === 'todo');
+
+                                // 1. Apply Pending Adds
+                                const pendingAdds = pendingTodos
+                                    .filter(item => item.action === 'add')
+                                    .map(item => ({
+                                        id: item.id, // Use the temp id from queue
+                                        text: item.data.text,
+                                        completed: item.data.completed,
+                                        pending: true
+                                    }));
+                                mergedTasks = [...mergedTasks, ...pendingAdds];
+
+                                // 2. Apply Pending Updates
+                                pendingTodos.filter(item => item.action === 'update').forEach(item => {
+                                    mergedTasks = mergedTasks.map(t =>
+                                        t.id === item.data.id ? { ...t, ...item.data.updates, pending: true } : t
+                                    );
+                                });
+
+                                // 3. Apply Pending Deletes
+                                const pendingDeletes = new Set(pendingTodos.filter(item => item.action === 'delete').map(item => item.data.id));
+                                mergedTasks = mergedTasks.filter(t => !pendingDeletes.has(t.id));
+
+                            } catch (qErr) {
+                                console.warn("Failed to merge sync queue", qErr);
+                            }
+
+                            setTasks(mergedTasks);
+                        }
+                    } else {
+                        setIsCloud(false);
+                        // Load from LocalStorage
+                        const savedTasks = localStorage.getItem('tasks');
+                        if (mounted && savedTasks) setTasks(JSON.parse(savedTasks));
+                    }
+                } catch (err) {
+                    console.error('Failed to load tasks', err);
+                } finally {
+                    if (mounted) setIsLoading(false);
+                }
             }
-            setIsLoading(false);
+        });
+
+        return () => {
+            mounted = false;
+            unsubscribe();
         };
-        loadTasks();
     }, []);
 
     // Save to LocalStorage (only if guest)
@@ -43,75 +97,93 @@ function Todo() {
         e.preventDefault();
         if (!input.trim()) return;
 
-        const newTask = { text: input, completed: false };
+        const tempId = Date.now();
+        const newTask = { id: tempId, text: input, completed: false, pending: true };
 
+        // 1. Optimistic Update
+        setTasks(prev => [...prev, newTask]);
+        setInput('');
+
+        // 2. Background Sync
         if (isCloud) {
-            try {
-                const user = await SupabaseAdapter.getUser();
-                const { data, error } = await SupabaseAdapter.getClient()
-                    .from('tasks')
-                    .insert([{ user_id: user.id, text: input, completed: false }])
-                    .select()
-                    .single();
+            // We use cachedUser for immediate action.
+            // We know we are logged in because `isCloud` is true.
+            const user = SupabaseAdapter.cachedUser;
 
-                if (error) throw error;
-                if (data) setTasks([...tasks, data]);
-            } catch (err) {
-                console.warn("Cloud add failed, queueing for sync", err);
-                const tempId = Date.now();
-                const tempTask = { ...newTask, id: tempId, pending: true };
-                setTasks([...tasks, tempTask]);
+            if (user) {
+                (async () => {
+                    try {
+                        const { data, error } = await SupabaseAdapter.getClient()
+                            .from('tasks')
+                            .insert([{ user_id: user.id, text: newTask.text, completed: false }])
+                            .select()
+                            .single();
 
-                // Queue for background sync
-                import('./agents/core/SyncAgent.js').then(m => {
-                    m.default.addToQueue('todo', 'add', newTask);
-                });
+                        if (error) throw error;
+
+                        // Replace temp ID with real ID and remove pending flag
+                        setTasks(prev => prev.map(t => t.id === tempId ? { ...data, pending: false } : t));
+                    } catch (err) {
+                        console.warn("Cloud add failed, queueing for sync", err);
+                        // Queue for background sync
+                        import('./agents/core/SyncAgent.js').then(m => {
+                            m.default.addToQueue('todo', 'add', { text: newTask.text, completed: false });
+                        });
+                    }
+                })();
+            } else {
+                console.warn("User session lost during add task");
             }
         } else {
-            setTasks([...tasks, { id: Date.now(), text: input, completed: false }]);
+            // Guest mode: update local storage implicitly via effect
         }
-        setInput('');
     };
 
     const toggleTask = async (id, currentStatus) => {
-        // Optimistic update
-        setTasks(tasks.map(task =>
+        // 1. Optimistic Update
+        setTasks(prev => prev.map(task =>
             task.id === id ? { ...task, completed: !task.completed } : task
         ));
 
+        // 2. Background Sync
         if (isCloud) {
-            try {
-                const { error } = await SupabaseAdapter.getClient()
-                    .from('tasks')
-                    .update({ completed: !currentStatus })
-                    .eq('id', id);
-                if (error) throw error;
-            } catch (err) {
-                console.warn("Cloud toggle failed, queueing for sync");
-                import('./agents/core/SyncAgent.js').then(m => {
-                    m.default.addToQueue('todo', 'update', { id, updates: { completed: !currentStatus } });
-                });
-            }
+            (async () => {
+                try {
+                    const { error } = await SupabaseAdapter.getClient()
+                        .from('tasks')
+                        .update({ completed: !currentStatus })
+                        .eq('id', id);
+                    if (error) throw error;
+                } catch (err) {
+                    console.warn("Cloud toggle failed, queueing for sync");
+                    import('./agents/core/SyncAgent.js').then(m => {
+                        m.default.addToQueue('todo', 'update', { id, updates: { completed: !currentStatus } });
+                    });
+                }
+            })();
         }
     };
 
     const deleteTask = async (id) => {
-        // Optimistic update
-        setTasks(tasks.filter(task => task.id !== id));
+        // 1. Optimistic Update
+        setTasks(prev => prev.filter(task => task.id !== id));
 
+        // 2. Background Sync
         if (isCloud) {
-            try {
-                const { error } = await SupabaseAdapter.getClient()
-                    .from('tasks')
-                    .delete()
-                    .eq('id', id);
-                if (error) throw error;
-            } catch (err) {
-                console.warn("Cloud delete failed, queueing for sync");
-                import('./agents/core/SyncAgent.js').then(m => {
-                    m.default.addToQueue('todo', 'delete', { id });
-                });
-            }
+            (async () => {
+                try {
+                    const { error } = await SupabaseAdapter.getClient()
+                        .from('tasks')
+                        .delete()
+                        .eq('id', id);
+                    if (error) throw error;
+                } catch (err) {
+                    console.warn("Cloud delete failed, queueing for sync");
+                    import('./agents/core/SyncAgent.js').then(m => {
+                        m.default.addToQueue('todo', 'delete', { id });
+                    });
+                }
+            })();
         }
     };
 
@@ -130,12 +202,12 @@ function Todo() {
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid var(--glass-border)', color: 'inherit' }}
-                    disabled={isLoading}
                 />
-                <button type="submit" className="btn btn-primary" disabled={isLoading}>
-                    {isLoading ? '...' : 'Add'}
+                <button type="submit" className="btn btn-primary">
+                    Add
                 </button>
             </form>
+
             <div className="task-list d-flex flex-column gap-3">
                 {tasks.length === 0 ? (
                     <p className="opacity-50 text-center py-4">
@@ -143,8 +215,11 @@ function Todo() {
                     </p>
                 ) : (
                     tasks.map(task => (
-                        <div key={task.id} className="task-item d-flex align-items-center justify-content-between glass p-3"
-                            style={{ animation: 'fadeIn 0.3s ease forwards', background: 'rgba(255,255,255,0.02)' }}>
+                        <div
+                            key={task.id}
+                            className="task-item d-flex align-items-center justify-content-between glass p-3"
+                            style={{ animation: 'fadeIn 0.3s ease forwards', background: 'rgba(255,255,255,0.02)' }}
+                        >
                             <div className="d-flex align-items-center gap-3">
                                 <input
                                     type="checkbox"
@@ -153,12 +228,14 @@ function Todo() {
                                     className="form-check-input"
                                     style={{ cursor: 'pointer', transform: 'scale(1.2)' }}
                                 />
-                                <span style={{
-                                    textDecoration: task.completed ? 'line-through' : 'none',
-                                    opacity: task.completed ? 0.5 : 1,
-                                    transition: 'var(--transition)',
-                                    fontWeight: 500
-                                }}>
+                                <span
+                                    style={{
+                                        textDecoration: task.completed ? 'line-through' : 'none',
+                                        opacity: task.completed ? 0.5 : 1,
+                                        transition: 'var(--transition)',
+                                        fontWeight: 500
+                                    }}
+                                >
                                     {task.text}
                                 </span>
                             </div>

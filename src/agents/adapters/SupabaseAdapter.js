@@ -33,9 +33,18 @@ class SupabaseAdapter {
                         return;
                     }
 
-                    // For login/refresh events, wait for enrichment BEFORE notifying
+                    // For login/refresh events
                     if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-                        const user = await this.getUser(true); // Force fresh fetch + enrichment
+                        // IMMEDATE NOTIFICATION: Don't wait for DB enrichment for the UI to react.
+                        // This makes the Welcome Animation and state changes instant.
+                        if (event === 'SIGNED_IN' && session?.user) {
+                            console.log("Immediate Auth Notification (Optimistic)");
+                            this.cachedUser = session.user;
+                            this.notifySubscribers(session.user);
+                        }
+
+                        // Then fetch full profile (Avatar, Name from DB) and notify again with "Enriched" data
+                        const user = await this.getUser(true);
                         this.notifySubscribers(user);
                     } else if (event === 'USER_UPDATED') {
                         // User metadata changed (e.g. from updateProfile)
@@ -180,11 +189,25 @@ class SupabaseAdapter {
 
         this._userFetchPromise = (async () => {
             try {
-                // 1. Get fresh user from Auth
-                const { data: { user }, error } = await this.supabase.auth.getUser();
+                // 1. Get fresh user from Auth with timeout
+                // We use a short timeout (2s) because for critical operations we'd rather be optimistic than hang
+                const { data: { user }, error } = await Promise.race([
+                    this.supabase.auth.getUser(),
+                    new Promise((_, reject) => setTimeout(() => reject(new Error('Auth timeout')), 3000))
+                ]).catch(e => ({ data: { user: null }, error: e }));
+
                 if (error || !user) {
+                    // Check if it's a network/unexpected error vs a real auth error
+                    const isAuthError = error?.message === 'Auth session missing!' || error?.message?.includes('Invalid Refresh Token');
+
+                    if (!isAuthError && this.cachedUser) {
+                        console.warn("Auth check failed (network/unknown), falling back to cache:", error?.message);
+                        this._userFetchPromise = null;
+                        return this.cachedUser;
+                    }
+
                     this._userFetchPromise = null;
-                    if (error && error.message !== 'Auth session missing!') {
+                    if (error && !isAuthError) {
                         console.warn("Auth.getUser error:", error.message);
                     }
                     return null;
