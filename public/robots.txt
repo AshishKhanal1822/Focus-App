@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+
+# Focus App - Productivity Workspace
+Sitemap: https://focus-app.pages.dev/sitemap.xml

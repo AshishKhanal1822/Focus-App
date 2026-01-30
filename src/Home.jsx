@@ -1,12 +1,15 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import SupabaseAdapter from './agents/adapters/SupabaseAdapter';
 import { useNavigate } from 'react-router-dom';
 import { eventBus } from './agents/core/EventBus';
-import Todo from './Todo';
-import Features from './Features';
-import Testimonials from './Testimonials';
+const Todo = lazy(() => import('./Todo'));
 import { motion } from 'framer-motion';
 import { ArrowRight, PenTool, BookOpen, CheckCircle2, Sparkles } from 'lucide-react';
+
+// Lazy load below-the-fold content
+// Lazy load below-the-fold content
+const Features = lazy(() => import('./Features'));
+const Testimonials = lazy(() => import('./Testimonials'));
 
 function Home() {
     const navigate = useNavigate();
@@ -60,7 +63,7 @@ function Home() {
             {/* Hero Section */}
             <motion.div
                 className="container pt-5 pb-5 text-center"
-                initial="hidden"
+                initial={{ opacity: 1 }}
                 animate="visible"
                 variants={containerVariants}
             >
@@ -107,11 +110,13 @@ function Home() {
                         >
                             <div className="position-relative">
                                 <img
-                                    src="https://images.unsplash.com/photo-1516414447565-b14be0adf13e?auto=format&fit=crop&q=80&w=1000"
-                                    srcSet="https://images.unsplash.com/photo-1516414447565-b14be0adf13e?auto=format&fit=crop&q=80&w=600 600w, https://images.unsplash.com/photo-1516414447565-b14be0adf13e?auto=format&fit=crop&q=80&w=1000 1000w, https://images.unsplash.com/photo-1516414447565-b14be0adf13e?auto=format&fit=crop&q=80&w=1500 1500w"
+                                    src="https://images.unsplash.com/photo-1516414447565-b14be0adf13e?auto=format&fm=webp&fit=crop&q=60&w=1000"
+                                    srcSet="https://images.unsplash.com/photo-1516414447565-b14be0adf13e?auto=format&fm=webp&fit=crop&q=60&w=600 600w, https://images.unsplash.com/photo-1516414447565-b14be0adf13e?auto=format&fm=webp&fit=crop&q=60&w=1000 1000w"
                                     sizes="(max-width: 768px) 100vw, 50vw"
-                                    alt="Writing"
+                                    alt="Creative Writing Workspace"
                                     className="custom-img"
+                                    width="1000"
+                                    height="600"
                                     fetchPriority="high"
                                     loading="eager"
                                 />
@@ -144,9 +149,16 @@ function Home() {
                             transition={{ type: "spring", stiffness: 300 }}
                         >
                             <div className="position-relative">
-                                <img src="https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fit=crop&q=80&w=1000"
-                                    alt="Reading"
-                                    className="custom-img" />
+                                <img
+                                    src="https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fm=webp&fit=crop&q=60&w=1000"
+                                    srcSet="https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fm=webp&fit=crop&q=60&w=600 600w, https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fm=webp&fit=crop&q=60&w=1000 1000w"
+                                    sizes="(max-width: 768px) 100vw, 50vw"
+                                    alt="Immersive Reading Experience"
+                                    width="1000"
+                                    height="600"
+                                    loading="lazy"
+                                    className="custom-img"
+                                />
                                 <div className="position-absolute top-0 end-0 m-3">
                                     <div className="p-2 rounded-circle glass shadow-sm">
                                         <BookOpen size={20} className="text-secondary" />
@@ -183,19 +195,23 @@ function Home() {
                             </div>
                             <h2 className="fw-bold mb-0">Daily Focus</h2>
                         </div>
-                        <Todo />
+                        <Suspense fallback={<div className="text-center py-4"><div className="spinner-border text-primary spinner-border-sm"></div></div>}>
+                            <Todo />
+                        </Suspense>
                     </div>
                 </motion.div>
             </div>
 
             {/* Additional Sections */}
-            <section id="features" className="mt-5 pt-5">
-                <Features />
-            </section>
+            <Suspense fallback={<div className="py-5 text-center text-muted">Loading content...</div>}>
+                <section id="features" className="mt-5 pt-5">
+                    <Features />
+                </section>
 
-            <section id="testimonials" className="mt-5 py-5">
-                <Testimonials />
-            </section>
+                <section id="testimonials" className="mt-5 py-5">
+                    <Testimonials />
+                </section>
+            </Suspense>
         </div>
     );
 }

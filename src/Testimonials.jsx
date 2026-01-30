@@ -199,8 +199,9 @@ function Testimonials() {
                             <div className="modal-body">
                                 <form onSubmit={handleSubmitReview}>
                                     <div className="mb-3">
-                                        <label className="form-label fw-bold">Your Name</label>
+                                        <label htmlFor="rev-name" className="form-label fw-bold">Your Name</label>
                                         <input
+                                            id="rev-name"
                                             type="text"
                                             className="form-control"
                                             value={formData.name}
@@ -209,8 +210,9 @@ function Testimonials() {
                                         />
                                     </div>
                                     <div className="mb-3">
-                                        <label className="form-label fw-bold">Your Role/Title (Optional)</label>
+                                        <label htmlFor="rev-role" className="form-label fw-bold">Your Role/Title (Optional)</label>
                                         <input
+                                            id="rev-role"
                                             type="text"
                                             className="form-control"
                                             value={formData.role}
@@ -219,8 +221,9 @@ function Testimonials() {
                                         />
                                     </div>
                                     <div className="mb-3">
-                                        <label className="form-label fw-bold">Your Review</label>
+                                        <label htmlFor="rev-text" className="form-label fw-bold">Your Review</label>
                                         <textarea
+                                            id="rev-text"
                                             className="form-control"
                                             rows="4"
                                             value={formData.review_text}

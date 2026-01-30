@@ -33,17 +33,31 @@ class SupabaseAdapter {
                         return;
                     }
 
-                    // For login/refresh events
+                    // For login/refresh/initial events
                     if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
                         // IMMEDATE NOTIFICATION: Don't wait for DB enrichment for the UI to react.
                         // This makes the Welcome Animation and state changes instant.
-                        if (event === 'SIGNED_IN' && session?.user) {
-                            console.log("Immediate Auth Notification (Optimistic)");
-                            this.cachedUser = session.user;
-                            this.notifySubscribers(session.user);
+                        if (session?.user) {
+                            console.log(`Immediate Auth Notification (Optimistic) for ${event}`);
+                            // If we already have enriched data in cache for this user, keep that enrichment
+                            if (this.cachedUser?.id === session.user.id && this.cachedUser.user_metadata?._is_enriched) {
+                                // User matches cache - keep cache but update auth fields from session if needed
+                                this.cachedUser = {
+                                    ...this.cachedUser,
+                                    ...session.user,
+                                    user_metadata: {
+                                        ...session.user.user_metadata,
+                                        ...this.cachedUser.user_metadata
+                                    }
+                                };
+                            } else {
+                                this.cachedUser = session.user;
+                            }
+                            this.notifySubscribers(this.cachedUser);
                         }
 
                         // Then fetch full profile (Avatar, Name from DB) and notify again with "Enriched" data
+                        // This happens in background
                         const user = await this.getUser(true);
                         this.notifySubscribers(user);
                     } else if (event === 'USER_UPDATED') {
@@ -53,20 +67,22 @@ class SupabaseAdapter {
                     }
                 });
 
-                // Periodic health check for profiles table
-                this.testConnection().then(async res => {
-                    if (res.success) {
-                        const { count, error } = await this.supabase
-                            .from('profiles')
-                            .select('*', { count: 'exact', head: true });
+                // Real-time cross-device sync handled via subscribeToProfile
+                console.log("Supabase initialized successfully.");
+                // BFCache (Back/Forward Cache) Optimization:
+                // WebSockets prevent the page from being stored in the browser's bfcache.
+                // We disconnect on hide and reconnect on show to improve navigation speed.
+                window.addEventListener('pagehide', () => {
+                    if (this.supabase) {
+                        console.log("BFcache: Page hidden, disconnecting Realtime");
+                        this.supabase.realtime.disconnect();
+                    }
+                });
 
-                        if (error) {
-                            console.error("DATABASE HEALTH CHECK FAILED: 'profiles' table is not accessible.", error.message);
-                        } else {
-                            console.log(`DATABASE HEALTH CHECK: 'profiles' table found. Total system profiles: ${count || 0}`);
-                        }
-                    } else {
-                        console.warn("DATABASE HEALTH CHECK SKIPPED: Connection test failed.");
+                window.addEventListener('pageshow', (event) => {
+                    if (this.supabase && event.persisted) {
+                        console.log("BFcache: Page restored, reconnecting Realtime");
+                        this.supabase.realtime.connect();
                     }
                 });
             } catch (err) {
@@ -184,8 +200,9 @@ class SupabaseAdapter {
     async getUser(force = false) {
         if (!this.supabase) return this.cachedUser;
 
-        // Dedup active fetches
-        if (!force && this._userFetchPromise) return this._userFetchPromise;
+        // Dedup active fetches - even forced ones should wait if there's a promise already running
+        // unless we explicitly want to restart (rare).
+        if (this._userFetchPromise) return this._userFetchPromise;
 
         this._userFetchPromise = (async () => {
             try {

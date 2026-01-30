@@ -107,6 +107,7 @@ export default function NavProfile() {
                                 src={avatarUrl}
                                 alt="Profile"
                                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                fetchpriority="high"
                                 onError={() => setImgError(true)}
                             />
                         ) : (

@@ -160,7 +160,7 @@ function Contact() {
                 <div className="row justify-content-center">
                     <div className="col-lg-6">
                         <div className="glass p-5 text-center">
-                            <h2 className="fw-bold mb-3">Connect With Us</h2>
+                            <h1 className="fw-bold mb-3 fs-2">Connect With Us</h1>
                             <p className="opacity-75 mb-5">
                                 Have ideas or questions? We'd love to hear from you.
                             </p>

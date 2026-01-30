@@ -199,6 +199,7 @@ function Todo() {
                     type="text"
                     className="form-control glass"
                     placeholder="Add a new task..."
+                    aria-label="Add a new task"
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid var(--glass-border)', color: 'inherit' }}

@@ -264,9 +264,9 @@ function Writing() {
                         className="mb-4 overflow-hidden"
                     >
                         <div className="glass p-4 rounded-4">
-                            <h5 className="fw-bold mb-3 d-flex align-items-center gap-2">
+                            <h2 className="fw-bold mb-3 d-flex align-items-center gap-2 fs-5">
                                 <Sparkles size={16} className="text-warning" /> Writing Prompts
-                            </h5>
+                            </h2>
                             <div className="d-flex flex-wrap gap-2 text-primary">
                                 {prompts.map((p, i) => (
                                     <button

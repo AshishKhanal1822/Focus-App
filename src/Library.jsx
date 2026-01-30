@@ -173,7 +173,7 @@ const Library = () => {
                                         </div>
                                     </div>
                                     <div className="card-body p-4">
-                                        <h5 className="card-title fw-bold mb-1">{book.title}</h5>
+                                        <h2 className="card-title fw-bold mb-1 fs-5">{book.title}</h2>
                                         <p className="small text-primary mb-3">by {book.author}</p>
                                         <p className="card-text text-muted small mb-0 line-clamp-2">
                                             {book.description}
@@ -186,7 +186,7 @@ const Library = () => {
                         <div className="col-12 text-center py-5">
                             <div className="bg-light p-5 rounded-4 d-inline-block">
                                 <Search size={48} className="text-muted mb-3 opacity-25" />
-                                <h4 className="fw-bold">No matches found</h4>
+                                <h2 className="fw-bold fs-4">No matches found</h2>
                                 <p className="text-muted mb-0">Try adjusting your search or category filters.</p>
                                 <button
                                     className="btn btn-link text-primary mt-2"
@@ -201,7 +201,7 @@ const Library = () => {
             </div>
 
             <div className="mt-5 p-5 glass rounded-4 text-center text-body position-relative">
-                <h3 className="fw-bold mb-3">Can't find what you're looking for?</h3>
+                <h2 className="fw-bold mb-3 fs-3">Can't find what you're looking for?</h2>
                 <p className="opacity-75 mb-4">Suggest a book or article to be added to our immersive library collection.</p>
                 <div className="d-flex justify-content-center">
                     <button
@@ -229,7 +229,7 @@ const Library = () => {
                                     onClick={(e) => e.stopPropagation()}
                                 >
                                     <div className="d-flex justify-content-between align-items-center mb-4 text-body">
-                                        <h5 className="fw-bold mb-0">Suggest a Resource</h5>
+                                        <h2 className="fw-bold mb-0 fs-5">Suggest a Resource</h2>
                                         <button className="btn btn-light rounded-circle p-2 btn-sm" onClick={() => setShowSuggestModal(false)} aria-label="Close suggestion modal">
                                             <X size={16} />
                                         </button>
@@ -311,7 +311,7 @@ const Library = () => {
                                             <BookOpen size={24} />
                                         </div>
                                         <div style={{ maxWidth: 'calc(100vw - 120px)' }}>
-                                            <h5 className="mb-0 fw-bold text-truncate">{selectedBook.title}</h5>
+                                            <h2 className="mb-0 fw-bold text-truncate fs-5">{selectedBook.title}</h2>
                                             <small className="text-muted text-truncate d-block">by {selectedBook.author}</small>
                                         </div>
                                     </div>

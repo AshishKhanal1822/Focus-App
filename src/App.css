@@ -6,9 +6,12 @@
     --secondary: #10b981;
     --accent: #f59e0b;
 
-    --bg-color: #f3f4f6;
-    --text-color: #111827;
-    --text-muted: #6b7280;
+    --bg-color: #f8fafc;
+    /* Slate 50 - cleaner look */
+    --text-color: #0f172a;
+    /* Slate 900 - high contrast */
+    --text-muted: #475569;
+    /* Slate 600 - much better contrast than #6b7280 */
     --text-body: var(--text-color);
 
     --card-bg: rgba(255, 255, 255, 0.8);
@@ -24,10 +27,10 @@
 [data-theme='dark'] {
     --bg-color: #0f172a;
     /* Slate 900 - much softer than pure black */
-    --text-color: #cbd5e1;
-    /* Slate 300 - comfortable off-white */
-    --text-muted: #64748b;
-    /* Slate 500 */
+    --text-color: #f1f5f9;
+    /* Slate 100 - very high contrast for dark mode */
+    --text-muted: #94a3b8;
+    /* Slate 400 - readable on dark backgrounds */
     --card-bg: rgba(30, 41, 59, 0.7);
     /* Slate 800 */
     --nav-bg: rgba(15, 23, 42, 0.95);
@@ -294,7 +297,7 @@ body {
     content: '';
     position: absolute;
     top: 0;
-    left: -100%;
+    transform: translateX(-100%);
     width: 100%;
     height: 100%;
     background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
@@ -303,7 +306,7 @@ body {
 }
 
 .glass:hover::before {
-    left: 100%;
+    transform: translateX(100%);
 }
 
 .nav-glass {
@@ -342,7 +345,7 @@ body {
     content: '';
     position: absolute;
     top: 0;
-    left: -100%;
+    transform: translateX(-100%);
     width: 100%;
     height: 100%;
     background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
@@ -350,7 +353,7 @@ body {
 }
 
 .btn-primary:hover::after {
-    left: 100%;
+    transform: translateX(100%);
 }
 
 .btn-primary:hover {
@@ -391,10 +394,12 @@ body {
 }
 
 .custom-img {
-    height: 280px;
     width: 100%;
+    aspect-ratio: 1000 / 600;
     object-fit: cover;
     border-radius: 24px 24px 0 0;
+    background: rgba(0, 0, 0, 0.05);
+    /* Placeholder while loading */
 }
 
 .text-muted {
@@ -457,18 +462,18 @@ body {
     position: absolute;
     bottom: -2px;
     left: 50%;
-    width: 0;
+    width: 20px;
     height: 3px;
     background: var(--primary);
     transition: var(--transition);
     border-radius: 10px;
-    transform: translateX(-50%);
+    transform: translateX(-50%) scaleX(0);
+    transform-origin: center;
 }
 
 .nav-link:hover::after,
 .nav-link.active::after {
-    width: 20px;
-    /* Consistent fixed width prevents it from being too long on mobile */
+    transform: translateX(-50%) scaleX(1);
 }
 
 .nav-link.active {

@@ -57,7 +57,7 @@ function GetStarted() {
                                 className="py-5"
                             >
                                 <CheckCircle className="text-success mb-4" size={64} />
-                                <h2 className="display-4 fw-bold mb-3">You're All Set!</h2>
+                                <h1 className="display-4 fw-bold mb-3">You're All Set!</h1>
                                 <p className="lead opacity-75 mb-5 mx-auto" style={{ maxWidth: '600px' }}>
                                     You're already a member of the Focus community.
                                     Continue your journey and master your workflow.
@@ -79,7 +79,7 @@ function GetStarted() {
                                         exit={{ opacity: 0, scale: 1.1 }}
                                         transition={{ duration: 0.5 }}
                                     >
-                                        <h2 className="display-4 fw-bold mb-4">Ready to Transform Your Workflow?</h2>
+                                        <h1 className="display-4 fw-bold mb-4">Ready to Transform Your Workflow?</h1>
                                         <p className="lead opacity-75 mb-5 mx-auto" style={{ maxWidth: '700px' }}>
                                             Join thousands of users who have elevated their productivity with Focus.
                                             Start your journey today. Start today!
@@ -141,15 +141,15 @@ function GetStarted() {
                                         <div className="d-inline-flex p-4 rounded-circle bg-success bg-opacity-10 text-success mb-4">
                                             <CheckCircle size={64} />
                                         </div>
-                                        <h2 className="display-4 fw-bold mb-3">Welcome to Focus!</h2>
-                                        <h4 className="text-success mb-4">Successfully joined our journey.</h4>
+                                        <h1 className="display-4 fw-bold mb-3">Welcome to Focus!</h1>
+                                        <h2 className="text-success mb-4 fs-4">Successfully joined our journey.</h2>
                                         <div className="glass p-4 rounded-4 mx-auto mb-4 d-inline-block shadow-sm">
                                             <div className="d-flex align-items-center gap-3 text-start">
                                                 <div className="p-3 rounded-3 bg-primary bg-opacity-10 text-primary">
                                                     <Mail size={32} />
                                                 </div>
                                                 <div>
-                                                    <h6 className="fw-bold mb-1">Check your inbox!</h6>
+                                                    <h3 className="fw-bold mb-1 fs-6">Check your inbox!</h3>
                                                     <p className="small opacity-75 mb-0">We've sent a welcome email to <strong>{email}</strong>.</p>
                                                 </div>
                                             </div>
