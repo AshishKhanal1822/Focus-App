@@ -12,6 +12,7 @@ export default function NavProfile() {
     const [localAvatar, setLocalAvatar] = useState(localStorage.getItem('user_avatar_local'));
     const [imgError, setImgError] = useState(false);
     const dropdownRef = useRef(null);
+    const previousUserRef = useRef(user);
     const navigate = useNavigate();
 
     // Authoritative derived state
@@ -30,8 +31,13 @@ export default function NavProfile() {
                 if (cloudUrl && typeof cloudUrl === 'string' && cloudUrl.startsWith('http')) {
                     localStorage.setItem('user_avatar_local', cloudUrl);
                 }
-                setIsOpen(false); // Close dropdown on login
+
+                // Only close dropdown on initial login transition (null -> user)
+                if (!previousUserRef.current) {
+                    setIsOpen(false);
+                }
             }
+            previousUserRef.current = enrichedUser;
         });
 
         // Close dropdown when clicking outside

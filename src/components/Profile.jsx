@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import SupabaseAdapter from '../agents/adapters/SupabaseAdapter.js';
 import ProfilePhoto from './ProfilePhoto.jsx';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
     User, Mail, ShieldCheck,
     Settings, ChevronRight,
@@ -39,6 +39,8 @@ export default function Profile({ initialUser = null }) {
             // Success: update local state instantly from returned optimistic data
             setIsEditing(false);
             setIsUpdating(false);
+            setMessage('Profile name updated!');
+            setTimeout(() => setMessage(''), 3000);
             if (data?.user) {
                 setUser(data.user);
                 previousUserRef.current = data.user;
@@ -95,7 +97,7 @@ export default function Profile({ initialUser = null }) {
                 setMessage('Check your email for confirmation link!');
             } else {
                 setMessage('Success!');
-                    // Welcome animation is handled globally in App.jsx on auth state change
+                // Welcome animation is handled globally in App.jsx on auth state change
             }
         }
         setLoading(false);
@@ -146,63 +148,88 @@ export default function Profile({ initialUser = null }) {
                 animate="visible"
                 variants={containerVariants}
             >
-                    <div className="text-center mb-3">
-                        <ProfilePhoto
-                            user={user}
-                            onUploadSuccess={(updatedUser) => {
-                                if (updatedUser) setUser(updatedUser);
-                                else refreshUser(true);
+                <AnimatePresence>
+                    {message && (
+                        <motion.div
+                            initial={{ opacity: 0, y: -40, scale: 0.95 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: -20, scale: 0.95 }}
+                            className="alert alert-success py-2 px-3 small rounded-pill text-center mb-3 border-0 shadow-lg d-flex align-items-center justify-content-center gap-2 sticky-top"
+                            style={{
+                                fontSize: '0.8rem',
+                                background: 'rgba(21, 115, 71, 0.9)',
+                                color: '#fff',
+                                backdropFilter: 'blur(10px)',
+                                zIndex: 100,
+                                margin: '0 10px 15px 10px',
+                                boxShadow: '0 4px 15px rgba(0,0,0,0.1)'
                             }}
-                        />
-
-                        {isEditing ? (
-                            <form onSubmit={handleUpdateName} className="mt-3 d-flex flex-column align-items-center gap-2">
-                                <input
-                                    type="text"
-                                    className="form-control form-control-sm text-center"
-                                    value={newName}
-                                    onChange={(e) => setNewName(e.target.value)}
-                                    style={{ maxWidth: '200px' }}
-                                    autoFocus
-                                />
-                                <div className="d-flex gap-2">
-                                    <button type="submit" className="btn btn-xs btn-primary py-1 px-3 rounded-pill" disabled={isUpdating}>
-                                        {isUpdating ? '...' : 'Save'}
-                                    </button>
-                                    <button type="button" className="btn btn-xs btn-outline-secondary py-1 px-3 rounded-pill" onClick={() => setIsEditing(false)}>
-                                        Cancel
-                                    </button>
-                                </div>
-                            </form>
-                        ) : (
-                            <div className="d-flex align-items-center justify-content-center gap-2 mt-3 group cursor-pointer" onClick={() => { setNewName(displayName); setIsEditing(true); }}>
-                                <h4 className="fw-bold mb-0 text-gradient pointer-events-none">{displayName}</h4>
-                                <Settings size={14} className="text-muted opacity-50 group-hover:opacity-100 transition-opacity" />
-                            </div>
-                        )}
-                        <p className="text-muted small mb-0 mt-1">Standard Account</p>
-                    </div>
-
-                    <div className="list-group list-group-flush border-0 mb-1">
-                        <motion.div variants={itemVariants} className="list-group-item bg-transparent border-0 px-0 d-flex align-items-center justify-content-between py-2 cursor-pointer hover-scale">
-                            <div className="d-flex align-items-center gap-2">
-                                <div className="p-2 rounded-circle bg-primary bg-opacity-10 text-primary">
-                                    <Mail size={16} />
-                                </div>
-                                <div>
-                                    <div className="small fw-semibold">Email</div>
-                                    <div className="small text-muted" style={{ fontSize: '0.75rem' }}>{user.email}</div>
-                                </div>
-                            </div>
-                            <ChevronRight size={14} className="text-muted" />
+                        >
+                            <ShieldCheck size={14} />
+                            <span className="fw-semibold">{message}</span>
                         </motion.div>
-                    </div>
+                    )}
+                </AnimatePresence>
 
-                    <div className="mt-3 pt-3 border-top border-light d-flex align-items-center justify-content-center gap-2 text-muted small opacity-50">
-                        <ShieldCheck size={12} />
-                        <span style={{ fontSize: '0.7rem' }}>Cloud sync active</span>
-                    </div>
-                </motion.div>
+                <div className="text-center mb-3">
+                    <ProfilePhoto
+                        user={user}
+                        onUploadSuccess={(updatedUser) => {
+                            if (updatedUser) setUser(updatedUser);
+                            else refreshUser(true);
+                            setMessage('Profile photo updated!');
+                            setTimeout(() => setMessage(''), 3000);
+                        }}
+                    />
+
+                    {isEditing ? (
+                        <form onSubmit={handleUpdateName} className="mt-3 d-flex flex-column align-items-center gap-2">
+                            <input
+                                type="text"
+                                className="form-control form-control-sm text-center"
+                                value={newName}
+                                onChange={(e) => setNewName(e.target.value)}
+                                style={{ maxWidth: '200px' }}
+                                autoFocus
+                            />
+                            <div className="d-flex gap-2">
+                                <button type="submit" className="btn btn-xs btn-primary py-1 px-3 rounded-pill" disabled={isUpdating}>
+                                    {isUpdating ? '...' : 'Save'}
+                                </button>
+                                <button type="button" className="btn btn-xs btn-outline-secondary py-1 px-3 rounded-pill" onClick={() => setIsEditing(false)}>
+                                    Cancel
+                                </button>
+                            </div>
+                        </form>
+                    ) : (
+                        <div className="d-flex align-items-center justify-content-center gap-2 mt-3 group cursor-pointer" onClick={() => { setNewName(displayName); setIsEditing(true); }}>
+                            <h4 className="fw-bold mb-0 text-gradient pointer-events-none">{displayName}</h4>
+                            <Settings size={14} className="text-muted opacity-50 group-hover:opacity-100 transition-opacity" />
+                        </div>
+                    )}
+                    <p className="text-muted small mb-0 mt-1">Standard Account</p>
+                </div>
+
+                <div className="list-group list-group-flush border-0 mb-1">
+                    <motion.div variants={itemVariants} className="list-group-item bg-transparent border-0 px-0 d-flex align-items-center justify-content-between py-2 cursor-pointer hover-scale">
+                        <div className="d-flex align-items-center gap-2">
+                            <div className="p-2 rounded-circle bg-primary bg-opacity-10 text-primary">
+                                <Mail size={16} />
+                            </div>
+                            <div>
+                                <div className="small fw-semibold">Email</div>
+                                <div className="small text-muted" style={{ fontSize: '0.75rem' }}>{user.email}</div>
+                            </div>
+                        </div>
+                        <ChevronRight size={14} className="text-muted" />
+                    </motion.div>
+                </div>
+
+                <div className="mt-3 pt-3 border-top border-light d-flex align-items-center justify-content-center gap-2 text-muted small opacity-50">
+                    <ShieldCheck size={12} />
+                    <span style={{ fontSize: '0.7rem' }}>Cloud sync active</span>
+                </div>
+            </motion.div>
         );
     }
 
