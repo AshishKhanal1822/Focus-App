@@ -20,6 +20,18 @@ export default function Profile({ initialUser = null }) {
     const lastRefreshRef = useRef(0);
     const skipNextRefreshRef = useRef(false);
     const previousUserRef = useRef(null);
+    const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+    useEffect(() => {
+        const handleOnline = () => setIsOnline(true);
+        const handleOffline = () => setIsOnline(false);
+        window.addEventListener('online', handleOnline);
+        window.addEventListener('offline', handleOffline);
+        return () => {
+            window.removeEventListener('online', handleOnline);
+            window.removeEventListener('offline', handleOffline);
+        };
+    }, []);
 
     const handleUpdateName = async (e) => {
         e.preventDefault();
@@ -83,8 +95,14 @@ export default function Profile({ initialUser = null }) {
 
     const handleAuth = async (e) => {
         e.preventDefault();
-        setLoading(true);
         setMessage('');
+
+        if (!navigator.onLine) {
+            setMessage('Internet connection required.');
+            return;
+        }
+
+        setLoading(true);
 
         const { data, error } = isLogin
             ? await SupabaseAdapter.signIn(email, password)
@@ -246,7 +264,13 @@ export default function Profile({ initialUser = null }) {
                 </div>
                 <h3 className="fw-bold mb-1">{isLogin ? 'Welcome Back' : 'Join Focus'}</h3>
 
-                {connectionStatus === 'error' && (
+                {connectionStatus === 'error' && !isOnline && (
+                    <div className="alert alert-warning small mt-2 py-2">
+                        You appear to be offline.<br />
+                        Please check your internet connection.
+                    </div>
+                )}
+                {connectionStatus === 'error' && isOnline && (
                     <div className="alert alert-danger small mt-2 py-2">
                         Unable to connect to database. <br />
                         Please check your internet or correct the API Key in .env.
