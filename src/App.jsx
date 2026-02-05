@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, Suspense, lazy } from "react"
 import { BrowserRouter as Router, Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import { WifiOff } from 'lucide-react';
 
 // Lazy loaded components
 const Home = lazy(() => import('./Home'));
@@ -255,12 +256,17 @@ function AppContent({ theme, toggleTheme }) {
               {theme === 'light' ? '🌙' : '☀️'}
             </button>
             {!isOnline && (
-              <span className="badge bg-danger ms-2 rounded-pill px-3">
-                Offline
-              </span>
+              <>
+                <span className="badge bg-danger ms-2 rounded-pill px-3 d-none d-lg-inline-block">
+                  Offline
+                </span>
+                <span className="text-danger ms-2 d-lg-none" title="You are offline">
+                  <WifiOff size={20} />
+                </span>
+              </>
             )}
             {showSyncSuccess && (
-              <span className="badge bg-success ms-2 rounded-pill px-3 animate-fade-in">
+              <span className="badge bg-success ms-2 rounded-pill px-3 animate-fade-in d-none d-lg-inline-block">
                 Synced!
               </span>
             )}

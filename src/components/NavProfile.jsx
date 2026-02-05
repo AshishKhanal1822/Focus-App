@@ -127,7 +127,14 @@ export default function NavProfile() {
 
             {/* Dropdown Content */}
             {isOpen && (
-                <div className="dropdown-menu show position-absolute end-0 mt-2 glass shadow-lg border-0 p-0 overflow-hidden" style={{ minWidth: '320px', right: 0, zIndex: 1050 }}>
+                <div
+                    className="dropdown-menu show position-absolute end-0 mt-2 glass shadow-lg border-0 p-0 overflow-hidden"
+                    style={{
+                        minWidth: 'min(90vw, 350px)',
+                        right: 0,
+                        zIndex: 1100
+                    }}
+                >
                     <div className="p-2">
                         <div className="d-flex justify-content-between align-items-center mb-2 px-2 pt-2">
                             <h6 className="fw-bold mb-0">{user ? 'My Profile' : 'Login / Setup'}</h6>
@@ -137,7 +144,7 @@ export default function NavProfile() {
                                 aria-label="Close profile menu"
                             ></button>
                         </div>
-                        <div style={{ maxHeight: '80vh', overflowY: 'auto' }}>
+                        <div style={{ maxHeight: 'min(70vh, 500px)', overflowY: 'auto' }}>
                             <Profile initialUser={user} />
                             {user && (
                                 <div className="p-2 border-top border-light mt-2">
