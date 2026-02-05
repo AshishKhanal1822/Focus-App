@@ -1,6 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { PenTool, Save, Trash2, Maximize2, Minimize2, Sparkles, Copy, Check } from 'lucide-react';
+import {
+    PenTool, Save, Trash2, Maximize2, Minimize2, Sparkles, Check,
+    Palette, Type, Eraser, Download, Undo, Redo,
+    Bold, Italic, AlignLeft
+} from 'lucide-react';
 import SupabaseAdapter from './agents/adapters/SupabaseAdapter.js';
 import SyncAgent from './agents/core/SyncAgent.js';
 
@@ -25,13 +29,58 @@ function Writing() {
     const [lastSaved, setLastSaved] = useState(null);
     const [isCloudSynced, setIsCloudSynced] = useState(false);
 
-    // Load from Cloud (Supabase) on mount
+    // Creative Mode States
+    const [mode, setMode] = useState('writing'); // 'writing' or 'drawing'
+    const [brushColor, setBrushColor] = useState('#6366f1');
+    const [brushSize, setBrushSize] = useState(3);
+    const [fontSize, setFontSize] = useState(18);
+    const canvasRef = useRef(null);
+    const [isDrawing, setIsDrawing] = useState(false);
+    const [drawingHistory, setDrawingHistory] = useState([]);
+    const [historyStep, setHistoryStep] = useState(-1);
+
+    const textareaRef = useRef(null);
+
+    // Ref for the contentEditable div
+    const editorRef = useRef(null);
+
+    // Update word count (stripping HTML tags)
     useEffect(() => {
-        const words = text.trim().split(/\s+/).filter(word => word.length > 0).length;
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = text;
+        const plainText = tempDiv.textContent || tempDiv.innerText || '';
+        const words = plainText.trim().split(/\s+/).filter(word => word.length > 0).length;
         setWordCount(words);
     }, [text]);
 
-    // Load from Cloud (Supabase) via Subscription
+    // Sync external text changes to DOM (only if not focused to avoid cursor jumps)
+    useEffect(() => {
+        if (editorRef.current && document.activeElement !== editorRef.current) {
+            if (editorRef.current.innerHTML !== text) {
+                editorRef.current.innerHTML = text;
+            }
+        }
+    }, [text, mode]);
+
+    // Restore drawing when switching to drawing mode
+    useEffect(() => {
+        if (mode === 'drawing' && historyStep >= 0 && drawingHistory[historyStep]) {
+            setTimeout(() => {
+                const canvas = canvasRef.current;
+                if (canvas) {
+                    const ctx = canvas.getContext('2d');
+                    const img = new Image();
+                    img.src = drawingHistory[historyStep];
+                    img.onload = () => {
+                        ctx.clearRect(0, 0, canvas.width, canvas.height);
+                        ctx.drawImage(img, 0, 0);
+                    };
+                }
+            }, 50); // Small delay to ensure canvas is mounted
+        }
+    }, [mode]);
+
+    // Load from Cloud (Supabase) on mount
     useEffect(() => {
         let mounted = true;
         let lastUserId = null;
@@ -220,8 +269,132 @@ function Writing() {
     };
 
     const insertPrompt = (prompt) => {
-        setText(prev => prev + (prev ? '\n\n' : '') + `Prompt: ${prompt}\n\n`);
+        // For contentEditable, insert HTML
+        const promptHtml = `<p>Prompt: ${prompt}</p>`;
+        setText(prev => prev + (prev ? '<br><br>' : '') + promptHtml);
         setShowPrompts(false);
+    };
+
+    // Canvas Drawing Functions
+    const startDrawing = (e) => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+
+        const rect = canvas.getBoundingClientRect();
+        const ctx = canvas.getContext('2d');
+        ctx.strokeStyle = brushColor;
+        ctx.lineWidth = brushSize;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+
+        ctx.beginPath();
+        ctx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
+        setIsDrawing(true);
+    };
+
+    const draw = (e) => {
+        if (!isDrawing) return;
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+
+        const rect = canvas.getBoundingClientRect();
+        const ctx = canvas.getContext('2d');
+        ctx.lineTo(e.clientX - rect.left, e.clientY - rect.top);
+        ctx.stroke();
+    };
+
+    const stopDrawing = () => {
+        if (isDrawing) {
+            const canvas = canvasRef.current;
+            if (canvas) {
+                const imageData = canvas.toDataURL();
+                const newHistory = drawingHistory.slice(0, historyStep + 1);
+                newHistory.push(imageData);
+                setDrawingHistory(newHistory);
+                setHistoryStep(newHistory.length - 1);
+            }
+        }
+        setIsDrawing(false);
+    };
+
+    const clearCanvas = () => {
+        const canvas = canvasRef.current;
+        if (canvas) {
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            setDrawingHistory([]);
+            setHistoryStep(-1);
+        }
+    };
+
+    const undoDrawing = () => {
+        if (historyStep > 0) {
+            setHistoryStep(historyStep - 1);
+            const canvas = canvasRef.current;
+            if (canvas) {
+                const ctx = canvas.getContext('2d');
+                const img = new Image();
+                img.src = drawingHistory[historyStep - 1];
+                img.onload = () => {
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    ctx.drawImage(img, 0, 0);
+                };
+            }
+        }
+    };
+
+    const redoDrawing = () => {
+        if (historyStep < drawingHistory.length - 1) {
+            setHistoryStep(historyStep + 1);
+            const canvas = canvasRef.current;
+            if (canvas) {
+                const ctx = canvas.getContext('2d');
+                const img = new Image();
+                img.src = drawingHistory[historyStep + 1];
+                img.onload = () => {
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    ctx.drawImage(img, 0, 0);
+                };
+            }
+        }
+    };
+
+    const downloadCanvas = () => {
+        const canvas = canvasRef.current;
+        if (canvas) {
+            const link = document.createElement('a');
+            link.download = `drawing-${Date.now()}.png`;
+            link.href = canvas.toDataURL();
+            link.click();
+        }
+    };
+
+    const applyTextFormat = (format) => {
+        // Ensure editor is focused before executing command
+        if (editorRef.current) {
+            editorRef.current.focus();
+        }
+
+        switch (format) {
+            case 'bold':
+                document.execCommand('bold', false, null);
+                break;
+            case 'italic':
+                document.execCommand('italic', false, null);
+                break;
+            default:
+                break;
+        }
+
+        // Update state immediately to reflect changes
+        if (editorRef.current) {
+            setText(editorRef.current.innerHTML);
+        }
+    };
+
+    // Handle text input
+    const handleContentChange = (e) => {
+        setText(e.currentTarget.innerHTML);
     };
 
     return (
@@ -289,8 +462,8 @@ function Writing() {
                 style={{ minHeight: '60vh' }}
             >
                 {/* Toolbar */}
-                <div className="p-3 border-bottom d-flex justify-content-between align-items-center bg-white bg-opacity-50">
-                    <div className="d-flex gap-3 align-items-center small text-muted flex-grow-1">
+                <div className="p-3 border-bottom d-flex flex-wrap justify-content-between align-items-center bg-white bg-opacity-50 gap-2">
+                    <div className="d-flex gap-3 align-items-center small text-muted flex-grow-1 flex-wrap">
                         <input
                             type="text"
                             className="form-control form-control-sm border-0 bg-transparent shadow-none"
@@ -300,6 +473,25 @@ function Writing() {
                             onChange={(e) => setTitle(e.target.value)}
                         />
                         <span className="fw-bold text-primary">{wordCount} words</span>
+
+                        {/* Mode Toggle */}
+                        <div className="btn-group btn-group-sm" role="group">
+                            <button
+                                className={`btn btn-sm ${mode === 'writing' ? 'btn-primary' : 'btn-outline-primary'}`}
+                                onClick={() => setMode('writing')}
+                                title="Writing Mode"
+                            >
+                                <Type size={14} />
+                            </button>
+                            <button
+                                className={`btn btn-sm ${mode === 'drawing' ? 'btn-primary' : 'btn-outline-primary'}`}
+                                onClick={() => setMode('drawing')}
+                                title="Drawing Mode"
+                            >
+                                <Palette size={14} />
+                            </button>
+                        </div>
+
                         {savedStatus && (
                             <span className="d-flex align-items-center gap-1 small">
                                 {isSaving ? (
@@ -316,29 +508,119 @@ function Writing() {
                             </span>
                         )}
                     </div>
-                    <div className="d-flex gap-2">
+
+                    <div className="d-flex gap-2 align-items-center flex-wrap">
+                        {mode === 'writing' && (
+                            <>
+                                {/* Text Formatting Tools */}
+                                <div className="btn-group btn-group-sm">
+                                    <button
+                                        className="btn btn-sm bg-light border-0 p-2"
+                                        onMouseDown={(e) => { e.preventDefault(); applyTextFormat('bold'); }}
+                                        title="Bold"
+                                    >
+                                        <Bold size={16} className="opacity-75" />
+                                    </button>
+                                    <button
+                                        className="btn btn-sm bg-light border-0 p-2"
+                                        onMouseDown={(e) => { e.preventDefault(); applyTextFormat('italic'); }}
+                                        title="Italic"
+                                    >
+                                        <Italic size={16} className="opacity-75" />
+                                    </button>
+                                </div>
+
+                                {/* Font Size */}
+                                <select
+                                    className="form-select form-select-sm bg-light border-0"
+                                    style={{ width: 'auto' }}
+                                    value={fontSize}
+                                    onChange={(e) => setFontSize(Number(e.target.value))}
+                                >
+                                    <option value={14}>14px</option>
+                                    <option value={16}>16px</option>
+                                    <option value={18}>18px</option>
+                                    <option value={20}>20px</option>
+                                    <option value={24}>24px</option>
+                                </select>
+                            </>
+                        )}
+
+                        {mode === 'drawing' && (
+                            <>
+                                {/* Drawing Tools */}
+                                <input
+                                    type="color"
+                                    value={brushColor}
+                                    onChange={(e) => setBrushColor(e.target.value)}
+                                    className="form-control form-control-sm form-control-color border-0"
+                                    title="Brush Color"
+                                    style={{ width: '40px', height: '32px' }}
+                                />
+
+                                <input
+                                    type="range"
+                                    min="1"
+                                    max="20"
+                                    value={brushSize}
+                                    onChange={(e) => setBrushSize(Number(e.target.value))}
+                                    className="form-range"
+                                    style={{ width: '100px' }}
+                                    title="Brush Size"
+                                />
+
+                                <button className="btn btn-sm bg-light border-0 p-2" onClick={undoDrawing} title="Undo" disabled={historyStep <= 0}>
+                                    <Undo size={16} className="opacity-75" />
+                                </button>
+                                <button className="btn btn-sm bg-light border-0 p-2" onClick={redoDrawing} title="Redo" disabled={historyStep >= drawingHistory.length - 1}>
+                                    <Redo size={16} className="opacity-75" />
+                                </button>
+                                <button className="btn btn-sm bg-light border-0 p-2" onClick={clearCanvas} title="Clear Canvas">
+                                    <Eraser size={16} className="opacity-75" />
+                                </button>
+                                <button className="btn btn-sm bg-light border-0 p-2" onClick={downloadCanvas} title="Download">
+                                    <Download size={16} className="opacity-75" />
+                                </button>
+                            </>
+                        )}
+
+                        <div className="vr opacity-25 mx-1"></div>
+
                         <button className="btn btn-sm bg-light border-0 rounded-circle p-2 hover-scale text-body" onClick={handleSave} title="Save Draft" aria-label="Save Draft">
                             <Save size={18} className="opacity-75" />
                         </button>
-                        <button className="btn btn-sm bg-light border-0 rounded-circle p-2 hover-scale text-body" onClick={handleClear} title="Clear" aria-label="Clear drafting space">
+                        <button className="btn btn-sm bg-light border-0 rounded-circle p-2 hover-scale text-body" onClick={mode === 'drawing' ? clearCanvas : handleClear} title="Clear" aria-label="Clear">
                             <Trash2 size={18} className="opacity-75" />
                         </button>
-                        <div className="vr opacity-25 mx-1"></div>
                         <button className="btn btn-sm bg-light border-0 rounded-circle p-2 hover-scale text-body" onClick={toggleFullScreen} title="Toggle Fullscreen" aria-label="Toggle Fullscreen mode">
                             {isFullScreen ? <Minimize2 size={18} className="opacity-75" /> : <Maximize2 size={18} className="opacity-75" />}
                         </button>
                     </div>
                 </div>
 
-                {/* Editor */}
-                <textarea
-                    className="form-control border-0 bg-transparent flex-grow-1 p-4 p-md-5 fs-5 shadow-none"
-                    style={{ resize: 'none', outline: 'none' }}
-                    placeholder="Start writing..."
-                    value={text}
-                    onChange={(e) => setText(e.target.value)}
-                    autoFocus
-                />
+                {/* Editor / Canvas */}
+                {mode === 'writing' ? (
+                    <div
+                        ref={editorRef}
+                        className="form-control border-0 bg-transparent flex-grow-1 p-4 p-md-5 shadow-none"
+                        style={{ outline: 'none', fontSize: `${fontSize}px`, overflowY: 'auto' }}
+                        contentEditable
+                        onInput={handleContentChange}
+                        placeholder="Start writing..."
+                    />
+                ) : (
+                    <canvas
+                        ref={canvasRef}
+                        width={1200}
+                        height={800}
+                        className="flex-grow-1 bg-white"
+                        style={{ cursor: 'crosshair', touchAction: 'none' }}
+                        onMouseDown={startDrawing}
+                        onMouseMove={draw}
+                        onMouseUp={stopDrawing}
+                        onMouseLeave={stopDrawing}
+                    />
+                )}
             </motion.div>
         </div>
     );

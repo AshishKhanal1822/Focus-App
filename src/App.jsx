@@ -8,7 +8,6 @@ const Home = lazy(() => import('./Home'));
 const Contact = lazy(() => import('./contact'));
 const Features = lazy(() => import('./Features'));
 const About = lazy(() => import('./About'));
-const FAQ = lazy(() => import('./FAQ'));
 const Testimonials = lazy(() => import('./Testimonials'));
 const GetStarted = lazy(() => import('./GetStarted'));
 const Library = lazy(() => import('./Library'));
@@ -202,7 +201,6 @@ function AppContent({ theme, toggleTheme }) {
     switch (path) {
       case '/features': import('./Features'); break;
       case '/about': import('./About'); break;
-      case '/faq': import('./FAQ'); break;
       case '/library': import('./Library'); break;
       case '/writing': import('./Writing'); break;
       default: break;
@@ -312,16 +310,7 @@ function AppContent({ theme, toggleTheme }) {
                     About
                   </Link>
                 </li>
-                <li className="nav-item">
-                  <Link
-                    className={`nav-link px-3 ${location.pathname === '/faq' ? 'active' : ''}`}
-                    to="/faq"
-                    onClick={handleNavClick('/faq')}
-                    onMouseEnter={handlePrefetch('/faq')}
-                  >
-                    FAQ
-                  </Link>
-                </li>
+
                 {!user && (
                   <li className="nav-item">
                     <Link className={`nav-link px-3 ${location.pathname === '/contact' ? 'active' : ''}`} to="/contact" onClick={handleNavClick('/contact')}>Contact</Link>
@@ -349,7 +338,6 @@ function AppContent({ theme, toggleTheme }) {
                 <Route path="/profile" element={<Profile />} />
                 <Route path="/features" element={<Features />} />
                 <Route path="/about" element={<About />} />
-                <Route path="/faq" element={<FAQ />} />
                 <Route path="/testimonials" element={<Testimonials />} />
                 <Route path="/contact" element={!user ? <Contact /> : <Home />} />
                 <Route path="/get-started" element={<GetStarted />} />
@@ -369,19 +357,12 @@ function AppContent({ theme, toggleTheme }) {
                 <h2 className="fw-bold mb-3 fs-4">Focus</h2>
                 <p className="opacity-75">Elevate your productivity with our modern workspace tools. Built for the future of work.</p>
               </div>
-              <div className="col-md-2 offset-md-1">
-                <h3 className="fw-bold mb-3 fs-6">Links</h3>
+              <div className="col-md-3 offset-md-2">
+                <h3 className="fw-bold mb-3 fs-6">Home</h3>
                 <ul className="list-unstyled opacity-75">
-                  <li><Link to="/" onClick={handleNavClick('/')} className="text-decoration-none text-current small">Home</Link></li>
-                  <li><Link to="/features" onClick={handleNavClick('/features')} className="text-decoration-none text-current small">Features</Link></li>
-                  <li><Link to="/library" onClick={handleNavClick('/library')} className="text-decoration-none text-current small">Library</Link></li>
-                </ul>
-              </div>
-              <div className="col-md-2">
-                <h3 className="fw-bold mb-3 fs-6">Legal</h3>
-                <ul className="list-unstyled opacity-75">
-                  <li><Link to="/about" onClick={handleNavClick('/about')} className="text-decoration-none text-current small">Privacy Policy</Link></li>
-                  <li><Link to="/about" onClick={handleNavClick('/about')} className="text-decoration-none text-current small">Terms of Service</Link></li>
+                  <li className="mb-2"><Link to="/" onClick={handleNavClick('/')} className="text-decoration-none text-current small">Overview</Link></li>
+                  <li className="mb-2"><Link to="/features" onClick={handleNavClick('/features')} className="text-decoration-none text-current small">Features</Link></li>
+                  <li className="mb-2"><Link to="/library" onClick={handleNavClick('/library')} className="text-decoration-none text-current small">Library</Link></li>
                 </ul>
               </div>
               <div className="col-md-3">

@@ -146,6 +146,12 @@ export default function Profile({ initialUser = null }) {
 
     useEffect(() => {
         async function checkConnection() {
+            // Skip connection test if offline
+            if (!isOnline) {
+                setConnectionStatus('offline');
+                return;
+            }
+
             const { success, error } = await SupabaseAdapter.testConnection();
             setConnectionStatus(success ? 'connected' : 'error');
             if (!success) {
@@ -153,7 +159,7 @@ export default function Profile({ initialUser = null }) {
             }
         }
         checkConnection();
-    }, []);
+    }, [isOnline]);
 
     // Logged In View
     if (user) {
@@ -264,7 +270,7 @@ export default function Profile({ initialUser = null }) {
                 </div>
                 <h3 className="fw-bold mb-1">{isLogin ? 'Welcome Back' : 'Join Focus'}</h3>
 
-                {connectionStatus === 'error' && !isOnline && (
+                {(connectionStatus === 'offline' || (!isOnline && connectionStatus === 'error')) && (
                     <div className="alert alert-warning small mt-2 py-2">
                         You appear to be offline.<br />
                         Please check your internet connection.

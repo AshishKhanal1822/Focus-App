@@ -7,8 +7,7 @@ import { motion } from 'framer-motion';
 import { ArrowRight, PenTool, BookOpen, CheckCircle2, Sparkles } from 'lucide-react';
 
 // Lazy load below-the-fold content
-// Lazy load below-the-fold content
-const Features = lazy(() => import('./Features'));
+const FAQ = lazy(() => import('./FAQ'));
 const Testimonials = lazy(() => import('./Testimonials'));
 
 function Home() {
@@ -92,7 +91,9 @@ function Home() {
                     )}
                     <button
                         className="btn btn-outline-primary btn-lg px-5 shadow-sm hover-scale"
-                        onClick={() => navigate('/features')}
+                        onClick={() => {
+                            document.getElementById('faq')?.scrollIntoView({ behavior: 'smooth' });
+                        }}
                     >
                         Explore
                     </button>
@@ -204,8 +205,8 @@ function Home() {
 
             {/* Additional Sections */}
             <Suspense fallback={<div className="py-5 text-center text-muted">Loading content...</div>}>
-                <section id="features" className="mt-5 pt-5">
-                    <Features />
+                <section id="faq" className="mt-5 pt-5">
+                    <FAQ />
                 </section>
 
                 <section id="testimonials" className="mt-5 py-5">
