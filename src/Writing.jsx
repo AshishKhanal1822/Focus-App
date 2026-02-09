@@ -44,6 +44,18 @@ function Writing() {
     // Ref for the contentEditable div
     const editorRef = useRef(null);
 
+    // Prevent scroll when in fullscreen
+    useEffect(() => {
+        if (isFullScreen) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = 'auto';
+        }
+        return () => {
+            document.body.style.overflow = 'auto';
+        };
+    }, [isFullScreen]);
+
     // Update word count (stripping HTML tags)
     useEffect(() => {
         const tempDiv = document.createElement('div');
@@ -145,6 +157,41 @@ function Writing() {
             mounted = false;
             unsubscribe();
         };
+    }, []);
+
+    // Keyboard Shortcuts for Undo/Redo in Drawing Mode
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (mode !== 'drawing') return;
+
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+                if (e.shiftKey) {
+                    e.preventDefault();
+                    redoDrawing();
+                } else {
+                    e.preventDefault();
+                    undoDrawing();
+                }
+            } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
+                e.preventDefault();
+                redoDrawing();
+            } else if (e.key === 'Escape' && isFullScreen) {
+                toggleFullScreen();
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [mode, historyStep, drawingHistory, isFullScreen]);
+
+    // Sync isFullScreen state with browser native fullscreen events
+    useEffect(() => {
+        const handleFullScreenChange = () => {
+            setIsFullScreen(!!document.fullscreenElement);
+        };
+
+        document.addEventListener('fullscreenchange', handleFullScreenChange);
+        return () => document.removeEventListener('fullscreenchange', handleFullScreenChange);
     }, []);
 
     const handleSave = async () => {
@@ -282,13 +329,20 @@ function Writing() {
 
         const rect = canvas.getBoundingClientRect();
         const ctx = canvas.getContext('2d');
+
+        // Account for canvas scaling (internal width/height vs display size)
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        const x = (e.clientX - rect.left) * scaleX;
+        const y = (e.clientY - rect.top) * scaleY;
+
         ctx.strokeStyle = brushColor;
         ctx.lineWidth = brushSize;
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
 
         ctx.beginPath();
-        ctx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
+        ctx.moveTo(x, y);
         setIsDrawing(true);
     };
 
@@ -299,7 +353,14 @@ function Writing() {
 
         const rect = canvas.getBoundingClientRect();
         const ctx = canvas.getContext('2d');
-        ctx.lineTo(e.clientX - rect.left, e.clientY - rect.top);
+
+        // Account for canvas scaling (internal width/height vs display size)
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        const x = (e.clientX - rect.left) * scaleX;
+        const y = (e.clientY - rect.top) * scaleY;
+
+        ctx.lineTo(x, y);
         ctx.stroke();
     };
 
@@ -328,17 +389,20 @@ function Writing() {
     };
 
     const undoDrawing = () => {
-        if (historyStep > 0) {
-            setHistoryStep(historyStep - 1);
+        if (historyStep >= 0) {
+            const nextStep = historyStep - 1;
+            setHistoryStep(nextStep);
             const canvas = canvasRef.current;
             if (canvas) {
                 const ctx = canvas.getContext('2d');
-                const img = new Image();
-                img.src = drawingHistory[historyStep - 1];
-                img.onload = () => {
-                    ctx.clearRect(0, 0, canvas.width, canvas.height);
-                    ctx.drawImage(img, 0, 0);
-                };
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                if (nextStep >= 0) {
+                    const img = new Image();
+                    img.src = drawingHistory[nextStep];
+                    img.onload = () => {
+                        ctx.drawImage(img, 0, 0);
+                    };
+                }
             }
         }
     };
@@ -398,7 +462,41 @@ function Writing() {
     };
 
     return (
-        <div className={`min-vh-100 d-flex flex-column ${isFullScreen ? 'bg-white' : 'container py-5'}`}>
+        <div className={`min-vh-100 d-flex flex-column ${isFullScreen ? 'bg-white position-fixed top-0 start-0 w-100 vh-100 z-3' : 'container py-5'}`} style={isFullScreen ? { zIndex: 1050 } : {}}>
+            {/* Fullscreen Header (Modern & Sleek) */}
+            <AnimatePresence>
+                {isFullScreen && (
+                    <motion.div
+                        initial={{ opacity: 0, y: -20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -20 }}
+                        className="p-3 bg-white border-bottom d-flex align-items-center justify-content-between px-4 shadow-sm"
+                    >
+                        <div className="d-flex align-items-center gap-3">
+                            <PenTool className="text-primary" size={24} />
+                            <h1 className="fs-5 fw-bold mb-0">Open Space</h1>
+                            {isCloudSynced && <span className="badge bg-primary bg-opacity-10 text-primary small">Synced</span>}
+                        </div>
+                        <div className="d-flex align-items-center gap-2">
+                            <button
+                                className="btn btn-sm btn-light rounded-pill px-3 d-flex align-items-center gap-2"
+                                onClick={() => setShowPrompts(!showPrompts)}
+                            >
+                                <Sparkles size={16} className="text-warning" />
+                                <span className="d-none d-sm-inline">Inspiration</span>
+                            </button>
+                            <button
+                                className="btn btn-sm btn-outline-primary rounded-circle p-2"
+                                onClick={toggleFullScreen}
+                                title="Exit Fullscreen"
+                            >
+                                <Minimize2 size={18} />
+                            </button>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
             <AnimatePresence>
                 {!isFullScreen && (
                     <motion.div
@@ -428,15 +526,17 @@ function Writing() {
                 )}
             </AnimatePresence>
 
+            {/* Floating Prompts Panel in Fullscreen */}
             <AnimatePresence>
-                {showPrompts && !isFullScreen && (
+                {showPrompts && (
                     <motion.div
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        exit={{ opacity: 0, height: 0 }}
-                        className="mb-4 overflow-hidden"
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.95 }}
+                        className={isFullScreen ? "position-absolute top-100 translate-middle-y end-0 m-4 z-3" : "mb-4"}
+                        style={isFullScreen ? { maxWidth: '300px' } : {}}
                     >
-                        <div className="glass p-4 rounded-4">
+                        <div className="glass p-4 rounded-4 shadow-lg border">
                             <h2 className="fw-bold mb-3 d-flex align-items-center gap-2 fs-5">
                                 <Sparkles size={16} className="text-warning" /> Writing Prompts
                             </h2>
@@ -444,7 +544,7 @@ function Writing() {
                                 {prompts.map((p, i) => (
                                     <button
                                         key={i}
-                                        className="btn btn-sm btn-light glass text-start"
+                                        className="btn btn-sm btn-light glass text-start border-0"
                                         onClick={() => insertPrompt(p)}
                                     >
                                         {p}
@@ -569,7 +669,7 @@ function Writing() {
                                     title="Brush Size"
                                 />
 
-                                <button className="btn btn-sm bg-light border-0 p-2" onClick={undoDrawing} title="Undo" disabled={historyStep <= 0}>
+                                <button className="btn btn-sm bg-light border-0 p-2" onClick={undoDrawing} title="Undo" disabled={historyStep < 0}>
                                     <Undo size={16} className="opacity-75" />
                                 </button>
                                 <button className="btn btn-sm bg-light border-0 p-2" onClick={redoDrawing} title="Redo" disabled={historyStep >= drawingHistory.length - 1}>
