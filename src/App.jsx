@@ -14,6 +14,7 @@ const Library = lazy(() => import('./Library'));
 const Writing = lazy(() => import('./Writing'));
 
 import ScrollToTop from './ScrollToTop';
+import MusicPlayer from './components/MusicPlayer.jsx';
 const Profile = lazy(() => import('./components/Profile.jsx'));
 const WelcomeAnimation = lazy(() => import('./components/WelcomeAnimation.jsx'));
 import NavProfile from './components/NavProfile.jsx';
@@ -398,6 +399,7 @@ function AppContent({ theme, toggleTheme }) {
         </footer>
       )}
       <ScrollToTop />
+      <MusicPlayer />
     </>
   );
 }

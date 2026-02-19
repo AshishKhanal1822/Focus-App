@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { BookOpen, Search, Filter, Bookmark, Download, ExternalLink, X, Clock, User } from 'lucide-react';
 import { books as initialBooks } from './data/books';
+import { MusicSection } from './components/MusicPlayer';
 
 const Library = () => {
     const [books] = useState(initialBooks);
@@ -200,6 +201,8 @@ const Library = () => {
                 </AnimatePresence>
             </div>
 
+            <MusicSection />
+
             <div className="mt-5 p-5 glass rounded-4 text-center text-body position-relative">
                 <h2 className="fw-bold mb-3 fs-3">Can't find what you're looking for?</h2>
                 <p className="opacity-75 mb-4">Suggest a book or article to be added to our immersive library collection.</p>
@@ -339,6 +342,9 @@ const Library = () => {
                                 </div>
 
                                 <div className="p-3 border-top bg-light d-flex justify-content-between align-items-center">
+                                    <button className="btn btn-outline-secondary btn-sm rounded-pill px-3 d-none d-sm-block text-body border-0 bg-transparent" onClick={() => window.dispatchEvent(new CustomEvent('music-toggle'))}>
+                                        <Music size={16} className="me-2" /> Soundscapes
+                                    </button>
                                     <button className="btn btn-outline-secondary btn-sm rounded-pill px-3 d-none d-sm-block text-body border-0 bg-transparent">
                                         <Bookmark size={16} className="me-2" /> Save for later
                                     </button>

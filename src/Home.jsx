@@ -1,3 +1,4 @@
+
 import React, { Suspense, lazy } from 'react';
 import SupabaseAdapter from './agents/adapters/SupabaseAdapter';
 import { useNavigate } from 'react-router-dom';
@@ -5,6 +6,7 @@ import { eventBus } from './agents/core/EventBus';
 const Todo = lazy(() => import('./Todo'));
 import { motion } from 'framer-motion';
 import { ArrowRight, PenTool, BookOpen, CheckCircle2, Sparkles } from 'lucide-react';
+import { MusicSection } from './components/MusicPlayer';
 
 // Lazy load below-the-fold content
 const FAQ = lazy(() => import('./FAQ'));
@@ -57,6 +59,27 @@ function Home() {
         }
     };
 
+    const hoverContentVariants = {
+        initial: {
+            opacity: 0,
+            height: 0,
+            overflow: 'hidden',
+        },
+        hover: {
+            opacity: 1,
+            height: 'auto',
+            transition: {
+                duration: 0.3,
+                ease: "easeOut"
+            }
+        }
+    };
+
+    const cardVariants = {
+        initial: { y: 0 },
+        hover: { y: -10 }
+    };
+
     return (
         <div className="hero-gradient pb-5">
             {/* Hero Section */}
@@ -101,83 +124,94 @@ function Home() {
             </motion.div>
 
             <div className="container mt-5">
-                <div className="row g-4">
+                <div className="row g-4 justify-content-center">
                     {/* Writing Card */}
-                    <div className="col-md-6">
+                    <div className="col-lg-5 col-md-6">
                         <motion.div
-                            className="card glass h-100 overflow-hidden border-0"
-                            whileHover={{ y: -10 }}
-                            transition={{ type: "spring", stiffness: 300 }}
+                            className="card glass overflow-hidden border-0 position-relative"
+                            variants={cardVariants}
+                            initial="initial"
+                            whileHover="hover"
+                            style={{ height: '480px' }}
                         >
-                            <div className="position-relative">
-                                <img
-                                    src="https://images.unsplash.com/photo-1516414447565-b14be0adf13e?auto=format&fm=webp&fit=crop&q=60&w=1000"
-                                    srcSet="https://images.unsplash.com/photo-1516414447565-b14be0adf13e?auto=format&fm=webp&fit=crop&q=60&w=600 600w, https://images.unsplash.com/photo-1516414447565-b14be0adf13e?auto=format&fm=webp&fit=crop&q=60&w=1000 1000w"
-                                    sizes="(max-width: 768px) 100vw, 50vw"
-                                    alt="Creative Writing Workspace"
-                                    className="custom-img"
-                                    width="1000"
-                                    height="600"
-                                    fetchPriority="high"
-                                    loading="eager"
-                                />
+                            <img
+                                src="https://images.unsplash.com/photo-1516414447565-b14be0adf13e?auto=format&fm=webp&fit=crop&q=60&w=1000"
+                                alt="Creative Writing Workspace"
+                                className="w-100 h-100 object-fit-cover"
+                                loading="eager"
+                            />
+
+                            {/* Overlay Content */}
+                            <motion.div
+                                className="position-absolute top-0 start-0 w-100 h-100 d-flex flex-column justify-content-end p-5"
+                                initial={{ background: 'linear-gradient(to top, rgba(0,0,0,0.6) 0%, transparent 50%)' }}
+                                whileHover={{ background: 'linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.4) 100%)' }}
+                                style={{ zIndex: 2 }}
+                            >
                                 <div className="position-absolute top-0 end-0 m-3">
                                     <div className="p-2 rounded-circle glass shadow-sm">
-                                        <PenTool size={20} className="text-primary" />
+                                        <PenTool size={20} className="text-white" />
                                     </div>
                                 </div>
-                            </div>
-                            <div className="card-body p-4 d-flex flex-column">
-                                <h2 className="fw-bold mb-2">Deep Writing</h2>
-                                <p className="text-muted flex-grow-1 mb-4">
-                                    Unleash your creativity in a distraction-free zone meticulously designed to help you maintain a perfect flow state.
-                                </p>
-                                <button
-                                    className="btn btn-sm btn-primary rounded-pill px-4 self-start"
-                                    onClick={() => navigate('/writing')}
-                                >
-                                    Open Workspace
-                                </button>
-                            </div>
+
+                                <h2 className="text-white fw-bold mb-3 display-6">Deep Writing</h2>
+                                <motion.div variants={hoverContentVariants}>
+                                    <p className="text-white opacity-75 mb-4 lead" style={{ fontSize: '1.1rem' }}>
+                                        Unleash your creativity in a distraction-free zone meticulously designed to help you maintain a perfect flow state.
+                                    </p>
+                                    <button
+                                        className="btn btn-primary btn-lg rounded-pill px-5 shadow-lg"
+                                        onClick={() => navigate('/writing')}
+                                    >
+                                        Open Workspace
+                                    </button>
+                                </motion.div>
+                            </motion.div>
                         </motion.div>
                     </div>
 
                     {/* Reading Card */}
-                    <div className="col-md-6">
+                    <div className="col-lg-5 col-md-6">
                         <motion.div
-                            className="card glass h-100 overflow-hidden border-0"
-                            whileHover={{ y: -10 }}
-                            transition={{ type: "spring", stiffness: 300 }}
+                            className="card glass overflow-hidden border-0 position-relative"
+                            variants={cardVariants}
+                            initial="initial"
+                            whileHover="hover"
+                            style={{ height: '480px' }}
                         >
-                            <div className="position-relative">
-                                <img
-                                    src="https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fm=webp&fit=crop&q=60&w=1000"
-                                    srcSet="https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fm=webp&fit=crop&q=60&w=600 600w, https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fm=webp&fit=crop&q=60&w=1000 1000w"
-                                    sizes="(max-width: 768px) 100vw, 50vw"
-                                    alt="Immersive Reading Experience"
-                                    width="1000"
-                                    height="600"
-                                    loading="lazy"
-                                    className="custom-img"
-                                />
+                            <img
+                                src="https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fm=webp&fit=crop&q=60&w=1000"
+                                alt="Immersive Reading Experience"
+                                className="w-100 h-100 object-fit-cover"
+                                loading="lazy"
+                            />
+
+                            {/* Overlay Content */}
+                            <motion.div
+                                className="position-absolute top-0 start-0 w-100 h-100 d-flex flex-column justify-content-end p-5"
+                                initial={{ background: 'linear-gradient(to top, rgba(0,0,0,0.6) 0%, transparent 50%)' }}
+                                whileHover={{ background: 'linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.4) 100%)' }}
+                                style={{ zIndex: 2 }}
+                            >
                                 <div className="position-absolute top-0 end-0 m-3">
                                     <div className="p-2 rounded-circle glass shadow-sm">
-                                        <BookOpen size={20} className="text-secondary" />
+                                        <BookOpen size={20} className="text-white" />
                                     </div>
                                 </div>
-                            </div>
-                            <div className="card-body p-4 d-flex flex-column">
-                                <h2 className="fw-bold mb-2">Immersive Reading</h2>
-                                <p className="text-muted flex-grow-1 mb-4">
-                                    Focus on every word with specialized tools built for deep reading, academic research, and cognitive absorption.
-                                </p>
-                                <button
-                                    className="btn btn-sm btn-primary rounded-pill px-4 self-start"
-                                    onClick={() => navigate('/library')}
-                                >
-                                    Enter Library
-                                </button>
-                            </div>
+
+                                <h2 className="text-white fw-bold mb-3 display-6">Immersive Reading</h2>
+                                <motion.div variants={hoverContentVariants}>
+                                    <p className="text-white opacity-75 mb-4 lead" style={{ fontSize: '1.1rem' }}>
+                                        Focus on every word with specialized tools built for deep reading, academic research, and cognitive absorption.
+                                    </p>
+                                    <button
+                                        className="btn btn-primary btn-lg rounded-pill px-5 shadow-lg"
+                                        onClick={() => navigate('/library')}
+                                    >
+                                        Enter Library
+                                    </button>
+                                </motion.div>
+                            </motion.div>
                         </motion.div>
                     </div>
                 </div>
@@ -202,6 +236,8 @@ function Home() {
                     </div>
                 </motion.div>
             </div>
+
+            <MusicSection />
 
             {/* Additional Sections */}
             <Suspense fallback={<div className="py-5 text-center text-muted">Loading content...</div>}>

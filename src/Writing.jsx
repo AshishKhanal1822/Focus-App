@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
     PenTool, Save, Trash2, Maximize2, Minimize2, Sparkles, Check,
     Palette, Type, Eraser, Download, Undo, Redo,
-    Bold, Italic, AlignLeft
+    Bold, Italic, AlignLeft, Music
 } from 'lucide-react';
 import SupabaseAdapter from './agents/adapters/SupabaseAdapter.js';
 import SyncAgent from './agents/core/SyncAgent.js';
@@ -686,6 +686,9 @@ function Writing() {
 
                         <div className="vr opacity-25 mx-1"></div>
 
+                        <button className="btn btn-sm bg-light border-0 rounded-circle p-2 hover-scale text-body" onClick={() => window.dispatchEvent(new CustomEvent('music-toggle'))} title="Music" aria-label="Toggle Music">
+                            <Music size={18} className="opacity-75" />
+                        </button>
                         <button className="btn btn-sm bg-light border-0 rounded-circle p-2 hover-scale text-body" onClick={handleSave} title="Save Draft" aria-label="Save Draft">
                             <Save size={18} className="opacity-75" />
                         </button>
