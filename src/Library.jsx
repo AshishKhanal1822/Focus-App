@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import SupabaseAdapter from './agents/adapters/SupabaseAdapter.js';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { BookOpen, Search, Filter, Bookmark, Download, ExternalLink, X, Clock, User } from 'lucide-react';
+import { BookOpen, Search, Filter, Download, ExternalLink, X, Clock, User, Music } from 'lucide-react';
 import { books as initialBooks } from './data/books';
 import { MusicSection } from './components/MusicPlayer';
 
@@ -345,9 +345,7 @@ const Library = () => {
                                     <button className="btn btn-outline-secondary btn-sm rounded-pill px-3 d-none d-sm-block text-body border-0 bg-transparent" onClick={() => window.dispatchEvent(new CustomEvent('music-toggle'))}>
                                         <Music size={16} className="me-2" /> Soundscapes
                                     </button>
-                                    <button className="btn btn-outline-secondary btn-sm rounded-pill px-3 d-none d-sm-block text-body border-0 bg-transparent">
-                                        <Bookmark size={16} className="me-2" /> Save for later
-                                    </button>
+
                                     <button className="btn btn-primary btn-sm rounded-pill px-4 ms-auto" onClick={() => setSelectedBook(null)}>
                                         Finish Reading
                                     </button>
