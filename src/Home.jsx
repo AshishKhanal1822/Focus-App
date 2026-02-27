@@ -16,6 +16,13 @@ function Home() {
     const navigate = useNavigate();
     const [user, setUser] = React.useState(SupabaseAdapter.cachedUser);
     const [loading, setLoading] = React.useState(!SupabaseAdapter.cachedUser);
+    const [isMobile, setIsMobile] = React.useState(() => window.innerWidth <= 768);
+
+    React.useEffect(() => {
+        const handleResize = () => setIsMobile(window.innerWidth <= 768);
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
 
     React.useEffect(() => {
         let mounted = true;
@@ -72,6 +79,11 @@ function Home() {
                 duration: 0.3,
                 ease: "easeOut"
             }
+        },
+        mobile: {
+            opacity: 1,
+            height: 'auto',
+            overflow: 'visible',
         }
     };
 
@@ -131,22 +143,28 @@ function Home() {
                             className="card glass overflow-hidden border-0 position-relative"
                             variants={cardVariants}
                             initial="initial"
-                            whileHover="hover"
-                            style={{ height: '480px' }}
+                            whileHover={isMobile ? undefined : "hover"}
+                            animate={isMobile ? "mobile" : "initial"}
+                            style={{ height: isMobile ? 'auto' : '480px', minHeight: isMobile ? '420px' : '480px' }}
                         >
                             <img
                                 src="https://images.unsplash.com/photo-1516414447565-b14be0adf13e?auto=format&fm=webp&fit=crop&q=60&w=1000"
                                 alt="Creative Writing Workspace"
                                 className="w-100 h-100 object-fit-cover"
                                 loading="eager"
+                                style={{ position: isMobile ? 'absolute' : 'static', top: 0, left: 0, width: '100%', height: '100%' }}
                             />
 
                             {/* Overlay Content */}
                             <motion.div
-                                className="position-absolute top-0 start-0 w-100 h-100 d-flex flex-column justify-content-end p-5"
-                                initial={{ background: 'linear-gradient(to top, rgba(0,0,0,0.6) 0%, transparent 50%)' }}
-                                whileHover={{ background: 'linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.4) 100%)' }}
-                                style={{ zIndex: 2 }}
+                                className="position-absolute top-0 start-0 w-100 h-100 d-flex flex-column justify-content-end p-4"
+                                style={{
+                                    zIndex: 2,
+                                    background: isMobile
+                                        ? 'linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.4) 100%)'
+                                        : 'linear-gradient(to top, rgba(0,0,0,0.6) 0%, transparent 50%)'
+                                }}
+                                whileHover={isMobile ? undefined : { background: 'linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.4) 100%)' }}
                             >
                                 <div className="position-absolute top-0 end-0 m-3">
                                     <div className="p-2 rounded-circle glass shadow-sm">
@@ -155,7 +173,10 @@ function Home() {
                                 </div>
 
                                 <h2 className="text-white fw-bold mb-3 display-6">Deep Writing</h2>
-                                <motion.div variants={hoverContentVariants}>
+                                <motion.div
+                                    variants={hoverContentVariants}
+                                    animate={isMobile ? "mobile" : undefined}
+                                >
                                     <p className="text-white opacity-75 mb-4 lead" style={{ fontSize: '1.1rem' }}>
                                         Unleash your creativity in a distraction-free zone meticulously designed to help you maintain a perfect flow state.
                                     </p>
@@ -176,22 +197,28 @@ function Home() {
                             className="card glass overflow-hidden border-0 position-relative"
                             variants={cardVariants}
                             initial="initial"
-                            whileHover="hover"
-                            style={{ height: '480px' }}
+                            whileHover={isMobile ? undefined : "hover"}
+                            animate={isMobile ? "mobile" : "initial"}
+                            style={{ height: isMobile ? 'auto' : '480px', minHeight: isMobile ? '420px' : '480px' }}
                         >
                             <img
                                 src="https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fm=webp&fit=crop&q=60&w=1000"
                                 alt="Immersive Reading Experience"
                                 className="w-100 h-100 object-fit-cover"
                                 loading="lazy"
+                                style={{ position: isMobile ? 'absolute' : 'static', top: 0, left: 0, width: '100%', height: '100%' }}
                             />
 
                             {/* Overlay Content */}
                             <motion.div
-                                className="position-absolute top-0 start-0 w-100 h-100 d-flex flex-column justify-content-end p-5"
-                                initial={{ background: 'linear-gradient(to top, rgba(0,0,0,0.6) 0%, transparent 50%)' }}
-                                whileHover={{ background: 'linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.4) 100%)' }}
-                                style={{ zIndex: 2 }}
+                                className="position-absolute top-0 start-0 w-100 h-100 d-flex flex-column justify-content-end p-4"
+                                style={{
+                                    zIndex: 2,
+                                    background: isMobile
+                                        ? 'linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.4) 100%)'
+                                        : 'linear-gradient(to top, rgba(0,0,0,0.6) 0%, transparent 50%)'
+                                }}
+                                whileHover={isMobile ? undefined : { background: 'linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.4) 100%)' }}
                             >
                                 <div className="position-absolute top-0 end-0 m-3">
                                     <div className="p-2 rounded-circle glass shadow-sm">
@@ -200,7 +227,10 @@ function Home() {
                                 </div>
 
                                 <h2 className="text-white fw-bold mb-3 display-6">Immersive Reading</h2>
-                                <motion.div variants={hoverContentVariants}>
+                                <motion.div
+                                    variants={hoverContentVariants}
+                                    animate={isMobile ? "mobile" : undefined}
+                                >
                                     <p className="text-white opacity-75 mb-4 lead" style={{ fontSize: '1.1rem' }}>
                                         Focus on every word with specialized tools built for deep reading, academic research, and cognitive absorption.
                                     </p>
