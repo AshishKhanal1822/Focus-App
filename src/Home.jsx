@@ -102,7 +102,6 @@ function Home() {
                 variants={containerVariants}
             >
                 <motion.div variants={itemVariants} className="d-inline-flex align-items-center gap-2 px-3 py-1 rounded-pill bg-primary bg-opacity-10 text-primary small fw-bold mb-4">
-                    <Sparkles size={14} />
                     <span>The next generation of productivity</span>
                 </motion.div>
 
