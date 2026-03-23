@@ -25,20 +25,34 @@ export default function FocusTimer() {
         .toString()
         .padStart(2, '0');
 
-    const handleStart = (e) => {
+    const handleStart = async (e) => {
         if (e) {
             e.preventDefault();
             e.stopPropagation();
         }
         eventBus.emit('FOCUS_START', { durationMinutes: modes[mode].minutes });
+        try {
+            if (document.documentElement.requestFullscreen) {
+                await document.documentElement.requestFullscreen();
+            }
+        } catch (err) {
+            console.warn("Fullscreen request failed:", err);
+        }
     };
 
-    const handleCancel = (e) => {
+    const handleCancel = async (e) => {
         if (e) {
             e.preventDefault();
             e.stopPropagation();
         }
         eventBus.emit('FOCUS_CANCEL');
+        try {
+            if (document.fullscreenElement && document.exitFullscreen) {
+                await document.exitFullscreen();
+            }
+        } catch (err) {
+            console.warn("Exit fullscreen failed:", err);
+        }
     };
 
     const handleModeSelect = (m) => {

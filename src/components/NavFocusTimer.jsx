@@ -23,21 +23,51 @@ export default function NavFocusTimer() {
                 setShowDropdown(false);
             }
         };
+
+        const handleFocusCompleted = async () => {
+            try {
+                if (document.fullscreenElement && document.exitFullscreen) {
+                    await document.exitFullscreen();
+                }
+            } catch (err) {
+                console.warn("Exit fullscreen failed on completion:", err);
+            }
+        };
+
         document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
+        const unsubscribe = eventBus.on('FOCUS_COMPLETED', handleFocusCompleted);
+        
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+            if (unsubscribe) unsubscribe();
+        };
     }, []);
 
-    const handleStart = (duration) => {
+    const handleStart = async (duration) => {
         eventBus.emit('FOCUS_START', { durationMinutes: duration });
         setShowDropdown(false);
+        try {
+            if (document.documentElement.requestFullscreen) {
+                await document.documentElement.requestFullscreen();
+            }
+        } catch (err) {
+            console.warn("Fullscreen request failed:", err);
+        }
     };
 
-    const handleCancel = (e) => {
+    const handleCancel = async (e) => {
         if (e) {
             e.preventDefault();
             e.stopPropagation();
         }
         eventBus.emit('FOCUS_CANCEL');
+        try {
+            if (document.fullscreenElement && document.exitFullscreen) {
+                await document.exitFullscreen();
+            }
+        } catch (err) {
+            console.warn("Exit fullscreen failed:", err);
+        }
     };
 
     if (state.status === 'running') {
