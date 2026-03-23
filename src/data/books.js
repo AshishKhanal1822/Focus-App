@@ -125,7 +125,7 @@ export const books = [
         title: 'Stoic Mindset',
         author: 'Marcus Aurelius',
         category: 'Philosophy',
-        image: 'https://images.unsplash.com/photo-1595150893047-97d3aa002a28?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80',
+        image: '/books/stoic.png',
         description: 'Ancient wisdom for modern resilience.',
         content: `
             <h2>The Dichotomy of Control</h2>
@@ -222,7 +222,7 @@ export const books = [
         title: 'Digital Zen',
         author: 'Master Ryue',
         category: 'Mindfulness',
-        image: 'https://images.unsplash.com/photo-1545231027-63b3f1c99aef?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80',
+        image: '/books/digital_zen.png',
         description: 'Finding peace in a connected world.',
         content: `
             <h2>The Middle Way of Technology</h2>

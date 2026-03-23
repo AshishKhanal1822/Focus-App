@@ -54,6 +54,16 @@ function AppContent({ theme, toggleTheme }) {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [showSyncSuccess, setShowSyncSuccess] = useState(false);
   const [isNavOpen, setIsNavOpen] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 20);
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll();
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   const toggleNav = () => setIsNavOpen(!isNavOpen);
 
@@ -232,7 +242,13 @@ function AppContent({ theme, toggleTheme }) {
         <div className="glow-2"></div>
       </div>
 
-      <nav className="navbar navbar-expand-lg nav-glass sticky-top">
+      <nav 
+        className={`navbar navbar-expand-lg sticky-top ${!isScrolled ? 'nav-glass shadow-sm' : 'bg-transparent border-0 shadow-none'}`} 
+        style={{ 
+          padding: '0.75rem 0',
+          transition: 'backdrop-filter 0.3s ease, background-color 0.3s ease, border 0.3s ease' 
+        }}
+      >
         <div className="container">
           <Link className="navbar-brand fw-bold" to="/" onClick={handleNavClick('/')}>Focus</Link>
 
