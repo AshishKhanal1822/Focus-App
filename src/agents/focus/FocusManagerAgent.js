@@ -12,6 +12,12 @@ export class FocusManagerAgent extends BaseAgent {
         this.defaultDuration = 25;
         this.timerId = null;
         this.lastCancelTime = 0;
+        this.wakeLock = null;
+        this.handleVisibilityChange = () => {
+            if (this.timerId && document.visibilityState === 'visible') {
+                this.requestWakeLock();
+            }
+        };
     }
 
     /** Initialise listeners */
@@ -25,6 +31,7 @@ export class FocusManagerAgent extends BaseAgent {
         if (persisted && persisted.remainingMs > 0) {
             this.resumeSession(persisted);
         }
+        document.addEventListener('visibilitychange', this.handleVisibilityChange);
     }
 
     /** Start a new focus session */
@@ -42,6 +49,7 @@ export class FocusManagerAgent extends BaseAgent {
         // We emit update immediately; StorageAgent handles persistence
         this.emit('FOCUS_STATE_UPDATED', { status: 'running', remainingMs: totalMs, endTime });
         this.timerId = setInterval(() => this.tick(endTime), 1000);
+        this.requestWakeLock();
     }
 
     /** Resume a persisted session */
@@ -55,11 +63,13 @@ export class FocusManagerAgent extends BaseAgent {
 
         this.emit('FOCUS_STATE_UPDATED', { status: 'running', remainingMs: msLeft, endTime });
         this.timerId = setInterval(() => this.tick(endTime), 1000);
+        this.requestWakeLock();
     }
 
     /** Cancel the current session */
     cancelSession() {
         this.clearTimer();
+        this.releaseWakeLock();
         this.lastCancelTime = Date.now();
         this.currentDuration = null; // Clear duration on cancel
         // StorageAgent will see status: 'idle' and clear/update storage
@@ -72,8 +82,28 @@ export class FocusManagerAgent extends BaseAgent {
         this.emit('FOCUS_STATE_UPDATED', { status: remainingMs ? 'running' : 'completed', remainingMs, endTime });
         if (remainingMs === 0) {
             this.clearTimer();
+            this.releaseWakeLock();
             // Pass stats for the history log
             this.emit('FOCUS_COMPLETED', { duration: this.currentDuration || this.defaultDuration, completedAt: new Date() });
+        }
+    }
+
+    async requestWakeLock() {
+        if ('wakeLock' in navigator) {
+            try {
+                this.wakeLock = await navigator.wakeLock.request('screen');
+                console.log('Screen Wake Lock acquired');
+            } catch (err) {
+                console.warn(`Wake Lock error: ${err.message}`);
+            }
+        }
+    }
+
+    releaseWakeLock() {
+        if (this.wakeLock !== null) {
+            this.wakeLock.release().catch(() => {});
+            this.wakeLock = null;
+            console.log('Screen Wake Lock released');
         }
     }
 
@@ -88,6 +118,8 @@ export class FocusManagerAgent extends BaseAgent {
     /** Clean up */
     destroy() {
         this.clearTimer();
+        this.releaseWakeLock();
+        document.removeEventListener('visibilitychange', this.handleVisibilityChange);
         super.destroy();
     }
 }
