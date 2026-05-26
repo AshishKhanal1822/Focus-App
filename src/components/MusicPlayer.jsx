@@ -324,8 +324,15 @@ export function MusicSection() {
             <div className="container">
                 <div className="glass p-4 p-md-5 rounded-5 border-0 shadow-lg overflow-hidden position-relative">
                     {/* Background Decorative Element */}
-                    <div className="position-absolute top-0 end-0 p-5 opacity-10">
-                        <Music size={120} />
+                    <div 
+                        className="position-absolute top-0 end-0 p-4 p-md-5"
+                        style={{
+                            pointerEvents: 'none',
+                            zIndex: 0,
+                            opacity: 0.07,
+                        }}
+                    >
+                        <Music size={120} style={{ width: 'clamp(80px, 12vw, 120px)', height: 'clamp(80px, 12vw, 120px)' }} />
                     </div>
 
                     <div className="row align-items-center position-relative" style={{ zIndex: 1 }}>
