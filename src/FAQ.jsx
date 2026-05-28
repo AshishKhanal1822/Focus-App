@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { HelpCircle, ChevronDown } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import SupabaseAdapter from './agents/adapters/SupabaseAdapter';
@@ -25,6 +25,7 @@ const faqs = [
 
 function FAQ() {
     const [user, setUser] = React.useState(null);
+    const [activeIndex, setActiveIndex] = React.useState(null);
 
     React.useEffect(() => {
         SupabaseAdapter.getUser().then(setUser);
@@ -33,6 +34,10 @@ function FAQ() {
         });
         return () => subscription.unsubscribe();
     }, []);
+
+    const toggleFAQ = (index) => {
+        setActiveIndex(activeIndex === index ? null : index);
+    };
 
     return (
         <div className="container py-5 mt-5">
@@ -58,17 +63,34 @@ function FAQ() {
                                     <button
                                         className="btn btn-link text-decoration-none text-start p-4 d-flex justify-content-between align-items-center w-100"
                                         type="button"
-                                        data-bs-toggle="collapse"
-                                        data-bs-target={`#faq-${index}`}
+                                        onClick={() => toggleFAQ(index)}
                                     >
                                         <h2 className="fw-bold fs-5 text-current mb-0">{faq.q}</h2>
-                                        <ChevronDown size={20} className="opacity-50" />
+                                        <ChevronDown 
+                                            size={20} 
+                                            className="opacity-50"
+                                            style={{ 
+                                                transform: activeIndex === index ? 'rotate(180deg)' : 'rotate(0deg)',
+                                                transition: 'transform 0.25s ease-in-out'
+                                            }}
+                                        />
                                     </button>
-                                    <div id={`faq-${index}`} className="collapse">
-                                        <div className="card-body p-4 pt-0 opacity-75">
-                                            {faq.a}
-                                        </div>
-                                    </div>
+                                    <AnimatePresence initial={false}>
+                                        {activeIndex === index && (
+                                            <motion.div
+                                                id={`faq-${index}`}
+                                                initial={{ height: 0, opacity: 0 }}
+                                                animate={{ height: 'auto', opacity: 1 }}
+                                                exit={{ height: 0, opacity: 0 }}
+                                                transition={{ duration: 0.25, ease: 'easeInOut' }}
+                                                style={{ overflow: 'hidden' }}
+                                            >
+                                                <div className="card-body p-4 pt-0 opacity-75">
+                                                    {faq.a}
+                                                </div>
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
                                 </div>
                             </motion.div>
                         ))}

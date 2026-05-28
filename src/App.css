@@ -853,6 +853,7 @@ footer {
     background: transparent;
     width: 100%;
     text-align: left;
+    color: var(--text-color) !important;
 }
 
 .dropdown-item:hover {
