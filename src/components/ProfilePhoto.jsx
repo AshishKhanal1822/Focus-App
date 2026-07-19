@@ -3,6 +3,7 @@ import { Camera, RefreshCw, Check, X, Upload } from 'lucide-react';
 import SupabaseAdapter from '../agents/adapters/SupabaseAdapter.js';
 import { eventBus } from '../agents/core/EventBus.js';
 import { motion, AnimatePresence } from 'framer-motion';
+import { dnd } from '../utils/dnd.js';
 
 export default function ProfilePhoto({ user, onUploadSuccess }) {
     const [stream, setStream] = useState(null);
@@ -39,6 +40,13 @@ export default function ProfilePhoto({ user, onUploadSuccess }) {
     const startCamera = async () => {
         setLoading(true);
         try {
+            const hasPermission = await dnd.checkAndRequestCameraPermission();
+            if (!hasPermission) {
+                alert("Camera permission is required to take a profile photo.");
+                setLoading(false);
+                return;
+            }
+
             const mediaStream = await navigator.mediaDevices.getUserMedia({
                 video: { width: 300, height: 300, facingMode: "user" }
             });

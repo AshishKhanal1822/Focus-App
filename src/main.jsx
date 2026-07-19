@@ -11,14 +11,12 @@ registerSW({
   }
 })
 
+import { dnd } from './utils/dnd.js'
+
 // Request notification permission on page load
-if ('Notification' in window) {
-  if (Notification.permission === 'default') {
-    Notification.requestPermission().then(permission => {
-      console.log('Notification permission granted:', permission);
-    });
-  }
-}
+dnd.checkAndRequestNotificationPermission().catch(err => {
+  console.warn('Failed to request notification permission:', err);
+});
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

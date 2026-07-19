@@ -4,6 +4,7 @@
 
 import { BaseAgent } from '../core/BaseAgent.js';
 import LocalStorageAdapter from '../adapters/LocalStorageAdapter.js';
+import { dnd } from '../../utils/dnd.js';
 
 export class FocusManagerAgent extends BaseAgent {
     constructor() {
@@ -50,6 +51,15 @@ export class FocusManagerAgent extends BaseAgent {
         this.emit('FOCUS_STATE_UPDATED', { status: 'running', remainingMs: totalMs, endTime });
         this.timerId = setInterval(() => this.tick(endTime), 1000);
         this.requestWakeLock();
+
+        // Turn on DND
+        dnd.hasDndPermission().then(granted => {
+            if (granted) {
+                dnd.enableDnd();
+            } else {
+                dnd.requestDndPermission();
+            }
+        });
     }
 
     /** Resume a persisted session */
@@ -64,6 +74,13 @@ export class FocusManagerAgent extends BaseAgent {
         this.emit('FOCUS_STATE_UPDATED', { status: 'running', remainingMs: msLeft, endTime });
         this.timerId = setInterval(() => this.tick(endTime), 1000);
         this.requestWakeLock();
+
+        // Enable DND on session resume
+        dnd.hasDndPermission().then(granted => {
+            if (granted) {
+                dnd.enableDnd();
+            }
+        });
     }
 
     /** Cancel the current session */
@@ -74,6 +91,9 @@ export class FocusManagerAgent extends BaseAgent {
         this.currentDuration = null; // Clear duration on cancel
         // StorageAgent will see status: 'idle' and clear/update storage
         this.emit('FOCUS_STATE_UPDATED', { status: 'idle', remainingMs: 0 });
+
+        // Turn off DND
+        dnd.disableDnd();
     }
 
     /** Internal tick – called each second */
@@ -83,6 +103,8 @@ export class FocusManagerAgent extends BaseAgent {
         if (remainingMs === 0) {
             this.clearTimer();
             this.releaseWakeLock();
+            // Turn off DND
+            dnd.disableDnd();
             // Pass stats for the history log
             this.emit('FOCUS_COMPLETED', { duration: this.currentDuration || this.defaultDuration, completedAt: new Date() });
         }
