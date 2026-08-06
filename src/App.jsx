@@ -12,9 +12,11 @@ const Testimonials = lazy(() => import('./Testimonials'));
 const GetStarted = lazy(() => import('./GetStarted'));
 const Library = lazy(() => import('./Library'));
 const Writing = lazy(() => import('./Writing'));
+const Dashboard = lazy(() => import('./Dashboard'));
 
 import ScrollToTop from './ScrollToTop';
 import MusicPlayer from './components/MusicPlayer.jsx';
+import FocusToast from './components/FocusToast.jsx';
 const Profile = lazy(() => import('./components/Profile.jsx'));
 const WelcomeAnimation = lazy(() => import('./components/WelcomeAnimation.jsx'));
 import NavProfile from './components/NavProfile.jsx';
@@ -93,45 +95,9 @@ function AppContent({ theme, toggleTheme }) {
 
   // Initialise agents once for the app lifecycle
   useEffect(() => {
-    let agents = {};
-
-    const initAgents = async () => {
-      // Dynamic imports to keep initial bundle tiny
-      const [
-        { FocusManagerAgent },
-        { NotificationAgent },
-        { StorageAgent },
-        { AuthAgent },
-        SyncAg
-      ] = await Promise.all([
-        import('./agents/focus/FocusManagerAgent.js'),
-        import('./agents/focus/NotificationAgent.js'),
-        import('./agents/storage/StorageAgent.js'),
-        import('./agents/auth/AuthAgent.js'),
-        import('./agents/core/SyncAgent.js')
-      ]);
-
-      agents.focusAgent = new FocusManagerAgent();
-      agents.notificationAgent = new NotificationAgent();
-      agents.storageAgent = new StorageAgent();
-      agents.authAgent = new AuthAgent();
-
-      agents.storageAgent.init();
-      agents.authAgent.init();
-      agents.focusAgent.init();
-      agents.notificationAgent.init();
-      SyncAg.default.init();
-    };
-
-    initAgents();
-
-    return () => {
-      if (agents.focusAgent) agents.focusAgent.destroy();
-      if (agents.notificationAgent) agents.notificationAgent.destroy();
-      if (agents.storageAgent) agents.storageAgent.destroy();
-      if (agents.authAgent) agents.authAgent.destroy();
-      // SyncAgent destroy is typically static or handled locally
-    };
+    import('./agents/index.js').then(({ initAppAgents }) => {
+      initAppAgents();
+    });
   }, []);
 
   useEffect(() => {
@@ -214,6 +180,7 @@ function AppContent({ theme, toggleTheme }) {
       case '/about': import('./About'); break;
       case '/library': import('./Library'); break;
       case '/writing': import('./Writing'); break;
+      case '/dashboard': import('./Dashboard'); break;
       default: break;
     }
   };
@@ -327,6 +294,18 @@ function AppContent({ theme, toggleTheme }) {
                     About
                   </Link>
                 </li>
+                {user && (
+                  <li className="nav-item">
+                    <Link
+                      className={`nav-link px-3 ${location.pathname === '/dashboard' ? 'active' : ''}`}
+                      to="/dashboard"
+                      onClick={handleNavClick('/dashboard')}
+                      onMouseEnter={handlePrefetch('/dashboard')}
+                    >
+                      Dashboard
+                    </Link>
+                  </li>
+                )}
 
                 {!user && (
                   <li className="nav-item">
@@ -360,6 +339,7 @@ function AppContent({ theme, toggleTheme }) {
                 <Route path="/get-started" element={<GetStarted />} />
                 <Route path="/library" element={<Library />} />
                 <Route path="/writing" element={<Writing />} />
+                <Route path="/dashboard" element={<Dashboard />} />
               </Routes>
             </motion.div>
           </AnimatePresence>
@@ -382,6 +362,7 @@ function AppContent({ theme, toggleTheme }) {
                   <li className="mb-2"><Link to="/library" onClick={handleNavClick('/library')} className="text-decoration-none text-current small">Library</Link></li>
                 </ul>
               </div>
+              {!user && (
               <div className="col-md-3">
                 <h3 className="fw-bold mb-3 fs-6">Newsletter</h3>
                 {!showFooterSuccess ? (
@@ -406,6 +387,7 @@ function AppContent({ theme, toggleTheme }) {
                   </div>
                 )}
               </div>
+              )}
             </div>
             <hr className="my-4 opacity-25" />
             <div className="text-center opacity-50 small">
@@ -416,6 +398,7 @@ function AppContent({ theme, toggleTheme }) {
       )}
       <ScrollToTop />
       <MusicPlayer />
+      <FocusToast />
     </>
   );
 }

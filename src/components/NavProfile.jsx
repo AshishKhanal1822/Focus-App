@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import SupabaseAdapter from '../agents/adapters/SupabaseAdapter.js';
 import Profile from './Profile.jsx';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { eventBus } from '../agents/core/EventBus.js';
 
 export default function NavProfile() {
@@ -147,7 +147,14 @@ export default function NavProfile() {
                         <div style={{ maxHeight: 'min(70vh, 500px)', overflowY: 'auto' }}>
                             <Profile initialUser={user} />
                             {user && (
-                                <div className="p-2 border-top border-light mt-2">
+                                <div className="p-2 border-top border-light mt-2 d-flex flex-column gap-2">
+                                    <Link
+                                        to="/dashboard"
+                                        className="btn btn-sm btn-primary w-100"
+                                        onClick={() => setIsOpen(false)}
+                                    >
+                                        View Dashboard
+                                    </Link>
                                     <button
                                         className="btn btn-sm btn-outline-danger w-100"
                                         onClick={handleLogout}

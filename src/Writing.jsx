@@ -65,6 +65,52 @@ function Writing() {
         setWordCount(words);
     }, [text]);
 
+    // Stats tracking: Writing Time & Words Written
+    const prevWordCountRef = useRef(0);
+
+    // Track word count diff
+    useEffect(() => {
+        // Initialize prevWordCountRef on first load to avoid writing positive diff on initial fetch
+        if (prevWordCountRef.current === 0 && wordCount > 0) {
+            prevWordCountRef.current = wordCount;
+            return;
+        }
+
+        if (wordCount > prevWordCountRef.current) {
+            const diff = wordCount - prevWordCountRef.current;
+            import('./agents/core/EventBus.js').then(m => {
+                m.eventBus.emit('STATS_INCREMENT', { words_written: diff });
+            });
+        }
+        prevWordCountRef.current = wordCount;
+    }, [wordCount]);
+
+    // Track active writing time (focused editor)
+    useEffect(() => {
+        let secondsElapsed = 0;
+        const interval = setInterval(() => {
+            const isFocused = document.activeElement === editorRef.current || document.activeElement?.closest('[contenteditable="true"]');
+            if (isFocused && document.visibilityState === 'visible') {
+                secondsElapsed++;
+                if (secondsElapsed >= 10) {
+                    import('./agents/core/EventBus.js').then(m => {
+                        m.eventBus.emit('STATS_INCREMENT', { writing_time_seconds: 10 });
+                    });
+                    secondsElapsed = 0;
+                }
+            }
+        }, 1000);
+
+        return () => {
+            clearInterval(interval);
+            if (secondsElapsed > 0) {
+                import('./agents/core/EventBus.js').then(m => {
+                    m.eventBus.emit('STATS_INCREMENT', { writing_time_seconds: secondsElapsed });
+                });
+            }
+        };
+    }, []);
+
     // Sync external text changes to DOM (only if not focused to avoid cursor jumps)
     useEffect(() => {
         if (editorRef.current && document.activeElement !== editorRef.current) {

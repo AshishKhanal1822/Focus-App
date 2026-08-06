@@ -81,6 +81,33 @@ const Library = () => {
         };
     }, [selectedBook]);
 
+    // Reading Time Stats Tracker
+    useEffect(() => {
+        if (!selectedBook) return;
+
+        let secondsElapsed = 0;
+        const interval = setInterval(() => {
+            if (document.visibilityState === 'visible') {
+                secondsElapsed++;
+                if (secondsElapsed >= 10) {
+                    import('./agents/core/EventBus.js').then(m => {
+                        m.eventBus.emit('STATS_INCREMENT', { reading_time_seconds: 10 });
+                    });
+                    secondsElapsed = 0;
+                }
+            }
+        }, 1000);
+
+        return () => {
+            clearInterval(interval);
+            if (secondsElapsed > 0) {
+                import('./agents/core/EventBus.js').then(m => {
+                    m.eventBus.emit('STATS_INCREMENT', { reading_time_seconds: secondsElapsed });
+                });
+            }
+        };
+    }, [selectedBook]);
+
     const filteredBooks = books.filter(book => {
         const matchesCategory = selectedCategory === 'All' || book.category === selectedCategory;
         const matchesSearch = book.title.toLowerCase().includes(searchTerm.toLowerCase()) ||

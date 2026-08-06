@@ -7,11 +7,14 @@ import { eventBus } from './EventBus.js';
 export class BaseAgent {
     constructor() {
         this.subscriptions = [];
+        this.isInitialized = false;
     }
 
     /** Called once after construction – override to set up listeners */
     init() {
-        // Example: this.on('FOO', this.handleFoo);
+        if (this.isInitialized) return false;
+        this.isInitialized = true;
+        return true;
     }
 
     /** Helper to subscribe to an event and keep track for later cleanup */
@@ -29,5 +32,6 @@ export class BaseAgent {
     destroy() {
         this.subscriptions.forEach((off) => off());
         this.subscriptions = [];
+        this.isInitialized = false;
     }
 }

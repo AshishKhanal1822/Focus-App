@@ -9,6 +9,7 @@ export class AuthAgent extends BaseAgent {
     }
 
     async init() {
+        if (!super.init()) return;
         // Check initial user
         this.user = await SupabaseAdapter.getUser();
         this.emitAuthState();

@@ -12,6 +12,7 @@ export class StorageAgent extends BaseAgent {
     }
 
     async init() {
+        if (!super.init()) return;
         await this.dbAdapter.init();
 
         // Auto-save active session state when it changes

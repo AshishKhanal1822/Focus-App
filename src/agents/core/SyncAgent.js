@@ -12,6 +12,7 @@ export class SyncAgent extends BaseAgent {
     }
 
     async init() {
+        if (!super.init()) return;
         // Listen for online status
         window.addEventListener('online', () => {
             console.log('App is online. Triggering sync...');
@@ -111,6 +112,8 @@ export class SyncAgent extends BaseAgent {
                 return await this.syncTodo(item, userId, client);
             case 'writing':
                 return await this.syncWriting(item, userId, client);
+            case 'stats':
+                return await this.syncStats(item, userId, client);
             default:
                 console.warn(`Unknown sync type: ${item.type}`);
                 return true; // Mark as done to remove from queue
@@ -194,6 +197,31 @@ export class SyncAgent extends BaseAgent {
 
         } catch (e) {
             console.error("Sync writing exception:", e);
+            return false;
+        }
+    }
+
+    async syncStats(item, userId, client) {
+        const { data } = item;
+        try {
+            const { error } = await client.rpc('increment_user_stats', {
+                p_user_id: userId,
+                p_date: data.date,
+                p_screen_time: data.screen_time_seconds || 0,
+                p_reading_time: data.reading_time_seconds || 0,
+                p_focus_time: data.focus_time_seconds || 0,
+                p_writing_time: data.writing_time_seconds || 0,
+                p_tasks_completed: data.tasks_completed || 0,
+                p_words_written: data.words_written || 0,
+                p_focus_sessions: data.focus_sessions_completed || 0
+            });
+            if (error) {
+                console.error("Sync stats db error:", error);
+                return false;
+            }
+            return true;
+        } catch (e) {
+            console.error("Sync stats exception:", e);
             return false;
         }
     }

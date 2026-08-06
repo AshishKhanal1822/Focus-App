@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import SupabaseAdapter from './agents/adapters/SupabaseAdapter.js';
 import SyncAgent from './agents/core/SyncAgent.js';
+import { eventBus } from './agents/core/EventBus.js';
 
 function Todo() {
     const [tasks, setTasks] = useState([]);
@@ -144,6 +145,10 @@ function Todo() {
         setTasks(prev => prev.map(task =>
             task.id === id ? { ...task, completed: !task.completed } : task
         ));
+
+        // Increment stats
+        const wasCompleted = !currentStatus;
+        eventBus.emit('STATS_INCREMENT', { tasks_completed: wasCompleted ? 1 : -1 });
 
         // 2. Background Sync
         if (isCloud) {

@@ -23,6 +23,7 @@ export class FocusManagerAgent extends BaseAgent {
 
     /** Initialise listeners */
     init() {
+        if (!super.init()) return;
         // UI can request a new session
         this.on('FOCUS_START', this.startSession.bind(this));
         // UI can request to stop / cancel

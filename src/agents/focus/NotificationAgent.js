@@ -12,6 +12,7 @@ export class NotificationAgent extends BaseAgent {
     }
 
     init() {
+        if (!super.init()) return;
         // Track focus state to manage warnings and DND
         this.on('FOCUS_STATE_UPDATED', (state) => {
             const wasRunning = this.isFocusActive;
