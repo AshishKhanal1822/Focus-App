@@ -87,19 +87,28 @@ class AdminStore {
     // --- BOOKS MANAGEMENT ---
     getBooks() {
         try {
-            const custom = JSON.parse(localStorage.getItem(KEYS.CUSTOM_BOOKS) || '[]');
-            return [...custom, ...initialBooks];
+            let custom = JSON.parse(localStorage.getItem(KEYS.CUSTOM_BOOKS) || '[]');
+            let modified = false;
+            
+            // Merge initialBooks if they are not already in the custom books array
+            initialBooks.forEach(initBook => {
+                if (!custom.some(b => b.id === initBook.id)) {
+                    custom.push(initBook);
+                    modified = true;
+                }
+            });
+
+            if (modified || !localStorage.getItem(KEYS.CUSTOM_BOOKS)) {
+                localStorage.setItem(KEYS.CUSTOM_BOOKS, JSON.stringify(custom));
+            }
+            return custom;
         } catch (e) {
             return initialBooks;
         }
     }
 
     getCustomBooks() {
-        try {
-            return JSON.parse(localStorage.getItem(KEYS.CUSTOM_BOOKS) || '[]');
-        } catch (e) {
-            return [];
-        }
+        return this.getBooks();
     }
 
     addBook(bookData) {

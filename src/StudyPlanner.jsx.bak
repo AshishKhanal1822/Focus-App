@@ -1,0 +1,740 @@
+// src/StudyPlanner.jsx
+import React, { useState, useEffect, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+    Calendar, BookOpen, Clock, CheckCircle2, Circle,
+    RefreshCw, Plus, Trash2, ArrowRight, Award, AlertTriangle,
+    Flame, Target, Zap, ChevronRight, BarChart2, Check, RotateCcw,
+    Layers, Book, Info, ShieldAlert
+} from 'lucide-react';
+import { Link } from 'react-router-dom';
+
+const PRESET_SUBJECTS = [
+    "Information System Audit",
+    "Computer Networks & Security",
+    "Data Structures & Algorithms",
+    "Organic Chemistry",
+    "Financial Accounting",
+    "Machine Learning & AI"
+];
+
+const STORAGE_KEY = 'focus_ai_study_plans';
+
+export default function StudyPlanner() {
+    const [plans, setPlans] = useState([]);
+    const [activePlanId, setActivePlanId] = useState(null);
+
+    // Modal / Wizard Form State
+    const [showCreateModal, setShowCreateModal] = useState(false);
+    const [formData, setFormData] = useState({
+        subject: '',
+        examDate: '',
+        totalChapters: 12,
+        dailyHours: 3,
+        intensity: 'balanced' // 'balanced' | 'intensive' | 'light'
+    });
+
+    // Load saved plans from localStorage on mount
+    useEffect(() => {
+        try {
+            const saved = localStorage.getItem(STORAGE_KEY);
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                setPlans(parsed);
+                if (parsed.length > 0) {
+                    setActivePlanId(parsed[0].id);
+                }
+            }
+        } catch (e) {
+            console.error("Failed to load study plans from storage:", e);
+        }
+    }, []);
+
+    // Save plans to localStorage on change
+    const savePlansToStorage = (newPlans) => {
+        setPlans(newPlans);
+        try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(newPlans));
+        } catch (e) {
+            console.error("Failed to save study plans:", e);
+        }
+    };
+
+    // --- ALGORITHM: Generate Adaptive Study Schedule ---
+    const generateSchedule = (subject, examDateStr, totalChapters, dailyHours, intensity) => {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const examDate = new Date(examDateStr);
+        examDate.setHours(0, 0, 0, 0);
+
+        const totalDays = Math.max(1, Math.ceil((examDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)));
+        const numChapters = parseInt(totalChapters, 10);
+        const hoursPerDay = parseFloat(dailyHours);
+
+        // Schedule days array
+        const days = [];
+
+        // Calculate distribution parameters
+        const reserveRevisionDays = totalDays >= 7 ? (intensity === 'intensive' ? 3 : 2) : (totalDays >= 3 ? 1 : 0);
+        const studyDaysCount = Math.max(1, totalDays - reserveRevisionDays);
+
+        const chaptersPerDay = numChapters / studyDaysCount;
+
+        for (let i = 0; i < totalDays; i++) {
+            const d = new Date(today);
+            d.setDate(today.getDate() + i);
+            const dateStr = d.toISOString().split('T')[0];
+
+            const isRevisionPhase = i >= studyDaysCount;
+            const dayNum = i + 1;
+
+            if (isRevisionPhase) {
+                days.push({
+                    dayIndex: i,
+                    date: dateStr,
+                    title: `Day ${dayNum}: Final Revision & Practice Mock`,
+                    type: 'revision',
+                    targetHours: Math.min(hoursPerDay, 4),
+                    chapters: [],
+                    tasks: [
+                        { id: `task-rev-1-${i}`, text: `Comprehensive Revision of Chapters 1 to ${numChapters}`, completed: false },
+                        { id: `task-rev-2-${i}`, text: `Timed Mock Exam & Self-Assessment`, completed: false }
+                    ]
+                });
+            } else {
+                // Regular study day
+                const startChap = Math.min(numChapters, Math.floor((i) * chaptersPerDay) + 1);
+                const endChap = Math.min(numChapters, Math.floor((i + 1) * chaptersPerDay));
+
+                const dayChapters = [];
+                const dayTasks = [];
+
+                if (startChap <= numChapters && startChap <= endChap && endChap >= startChap) {
+                    for (let c = startChap; c <= endChap; c++) {
+                        dayChapters.push(c);
+                        dayTasks.push({
+                            id: `chap-${c}-read`,
+                            chapterNum: c,
+                            text: `Chapter ${c}: Initial Read & Concept Notes`,
+                            completed: false,
+                            estimatedMinutes: Math.round((hoursPerDay * 60) / Math.max(1, (endChap - startChap + 1) * 2))
+                        });
+                        dayTasks.push({
+                            id: `chap-${c}-practice`,
+                            chapterNum: c,
+                            text: `Chapter ${c}: Practice Questions & Quiz`,
+                            completed: false,
+                            estimatedMinutes: Math.round((hoursPerDay * 60) / Math.max(1, (endChap - startChap + 1) * 2))
+                        });
+                    }
+                } else if (startChap <= numChapters) {
+                    // Fallback for fractional distribution
+                    dayChapters.push(startChap);
+                    dayTasks.push({
+                        id: `chap-${startChap}-read`,
+                        chapterNum: startChap,
+                        text: `Chapter ${startChap}: Study Core Topics & Summary`,
+                        completed: false,
+                        estimatedMinutes: Math.round(hoursPerDay * 60)
+                    });
+                }
+
+                days.push({
+                    dayIndex: i,
+                    date: dateStr,
+                    title: dayChapters.length > 0 
+                        ? `Day ${dayNum}: Chapter ${dayChapters.join(', ')}`
+                        : `Day ${dayNum}: Deep Review & Practice Problem Set`,
+                    type: 'study',
+                    targetHours: hoursPerDay,
+                    chapters: dayChapters,
+                    tasks: dayTasks.length > 0 ? dayTasks : [
+                        { id: `task-rev-generic-${i}`, text: `Review notes and solve practice problem set`, completed: false }
+                    ]
+                });
+            }
+        }
+
+        return {
+            id: 'plan_' + Date.now(),
+            subject,
+            examDate: examDateStr,
+            createdAt: today.toISOString(),
+            totalChapters: numChapters,
+            dailyHours: hoursPerDay,
+            intensity,
+            days
+        };
+    };
+
+    // Handle Create New Plan Submit
+    const handleCreatePlan = (e) => {
+        e.preventDefault();
+        if (!formData.subject || !formData.examDate) return;
+
+        const newPlan = generateSchedule(
+            formData.subject,
+            formData.examDate,
+            formData.totalChapters,
+            formData.dailyHours,
+            formData.intensity
+        );
+
+        const updatedPlans = [newPlan, ...plans];
+        savePlansToStorage(updatedPlans);
+        setActivePlanId(newPlan.id);
+        setShowCreateModal(false);
+        setFormData({
+            subject: '',
+            examDate: '',
+            totalChapters: 12,
+            dailyHours: 3,
+            intensity: 'balanced'
+        });
+    };
+
+    // Active Plan Object
+    const activePlan = useMemo(() => {
+        return plans.find(p => p.id === activePlanId) || null;
+    }, [plans, activePlanId]);
+
+    // Toggle Task Completed
+    const handleToggleTask = (planId, dayIndex, taskId) => {
+        const updatedPlans = plans.map(p => {
+            if (p.id !== planId) return p;
+
+            const updatedDays = p.days.map((day, idx) => {
+                if (idx !== dayIndex) return day;
+                const updatedTasks = day.tasks.map(t => {
+                    if (t.id === taskId) {
+                        return { ...t, completed: !t.completed };
+                    }
+                    return t;
+                });
+                return { ...day, tasks: updatedTasks };
+            });
+
+            return { ...p, days: updatedDays };
+        });
+
+        savePlansToStorage(updatedPlans);
+    };
+
+    // --- ALGORITHM: Adapt & Reschedule Remaining Work ---
+    const handleAdaptReschedule = (planId) => {
+        const targetPlan = plans.find(p => p.id === planId);
+        if (!targetPlan) return;
+
+        const examDateStr = targetPlan.examDate;
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const examDate = new Date(examDateStr);
+        examDate.setHours(0, 0, 0, 0);
+
+        const remainingDaysCount = Math.max(1, Math.ceil((examDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)));
+
+        // Find all uncompleted tasks across the entire plan
+        const uncompletedTasks = [];
+        targetPlan.days.forEach(day => {
+            day.tasks.forEach(task => {
+                if (!task.completed) {
+                    uncompletedTasks.push(task);
+                }
+            });
+        });
+
+        if (uncompletedTasks.length === 0) {
+            alert("All tasks are already completed! Great job 🎉");
+            return;
+        }
+
+        // Redistribute uncompleted tasks over remaining days
+        const tasksPerDay = Math.ceil(uncompletedTasks.length / remainingDaysCount);
+        const newDays = [];
+
+        for (let i = 0; i < remainingDaysCount; i++) {
+            const d = new Date(today);
+            d.setDate(today.getDate() + i);
+            const dateStr = d.toISOString().split('T')[0];
+            const dayNum = i + 1;
+
+            const startIndex = i * tasksPerDay;
+            const dayTasks = uncompletedTasks.slice(startIndex, startIndex + tasksPerDay);
+
+            if (dayTasks.length > 0) {
+                newDays.push({
+                    dayIndex: i,
+                    date: dateStr,
+                    title: `Adapted Day ${dayNum} (${dateStr})`,
+                    type: i === remainingDaysCount - 1 ? 'revision' : 'study',
+                    targetHours: targetPlan.dailyHours,
+                    chapters: Array.from(new Set(dayTasks.map(t => t.chapterNum).filter(Boolean))),
+                    tasks: dayTasks
+                });
+            } else {
+                newDays.push({
+                    dayIndex: i,
+                    date: dateStr,
+                    title: `Adapted Day ${dayNum}: Final Review & Catch-up`,
+                    type: 'revision',
+                    targetHours: targetPlan.dailyHours,
+                    chapters: [],
+                    tasks: [
+                        { id: `adapted-rev-${i}`, text: `Mock Exam & High-Yield Topic Review`, completed: false }
+                    ]
+                });
+            }
+        }
+
+        const updatedPlans = plans.map(p => {
+            if (p.id !== planId) return p;
+            return {
+                ...p,
+                days: newDays,
+                lastRescheduledAt: new Date().toISOString()
+            };
+        });
+
+        savePlansToStorage(updatedPlans);
+    };
+
+    // Delete Plan
+    const handleDeletePlan = (planId) => {
+        if (!window.confirm("Are you sure you want to delete this study plan?")) return;
+        const updated = plans.filter(p => p.id !== planId);
+        savePlansToStorage(updated);
+        if (updated.length > 0) {
+            setActivePlanId(updated[0].id);
+        } else {
+            setActivePlanId(null);
+        }
+    };
+
+    // Progress Computations
+    const activeProgress = useMemo(() => {
+        if (!activePlan || !activePlan.days) return { totalTasks: 0, completedTasks: 0, percentage: 0, daysRemaining: 0, paceStatus: 'On Track', paceColor: 'success', paceMessage: '' };
+
+        let total = 0;
+        let completed = 0;
+
+        activePlan.days.forEach(day => {
+            day.tasks.forEach(t => {
+                total++;
+                if (t.completed) completed++;
+            });
+        });
+
+        const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const examDate = new Date(activePlan.examDate);
+        examDate.setHours(0, 0, 0, 0);
+        const daysRemaining = Math.max(0, Math.ceil((examDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)));
+
+        // AI Pace Assessment
+        const expectedCompletionPct = Math.round(((activePlan.days.length - daysRemaining) / activePlan.days.length) * 100);
+        let paceStatus = 'On Track';
+        let paceColor = 'success';
+        let paceMessage = 'You are right on schedule! Keep maintaining your daily study pace.';
+
+        if (percentage >= expectedCompletionPct + 10) {
+            paceStatus = 'Ahead of Schedule 🔥';
+            paceColor = 'success';
+            paceMessage = `Fantastic work! You are ${percentage - expectedCompletionPct}% ahead of schedule. Use remaining time for mock exams.`;
+        } else if (percentage < expectedCompletionPct - 15) {
+            paceStatus = 'Pace Alert: Falling Behind ⚡';
+            paceColor = 'warning';
+            paceMessage = `You are ${expectedCompletionPct - percentage}% behind schedule. Click "Adapt & Reschedule" to redistribute remaining topics.`;
+        }
+
+        return {
+            totalTasks: total,
+            completedTasks: completed,
+            percentage,
+            daysRemaining,
+            paceStatus,
+            paceColor,
+            paceMessage
+        };
+    }, [activePlan]);
+
+    return (
+        <div className="container py-4">
+            {/* Header Title */}
+            <div className="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+                <div>
+                    <h1 className="fw-bold fs-3 mb-1 d-flex align-items-center gap-2">
+                        AI Adaptive Study Planner
+                    </h1>
+                    <p className="small text-muted mb-0">Generates smart study schedules, tracks progress, and automatically redistributes remaining workload if you fall behind.</p>
+                </div>
+                <button
+                    className="btn btn-primary rounded-pill px-4 py-2 d-flex align-items-center gap-2 shadow-sm"
+                    onClick={() => setShowCreateModal(true)}
+                >
+                    <Plus size={18} /> Create New Study Plan
+                </button>
+            </div>
+
+            {/* Plan Selector & Quick Actions */}
+            {plans.length > 0 && (
+                <div className="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2 glass rounded-4 p-3">
+                    <div className="d-flex align-items-center gap-2 overflow-auto py-1" style={{ maxWidth: '100%' }}>
+                        {plans.map(p => (
+                            <button
+                                key={p.id}
+                                className={`btn rounded-pill px-4 py-2 text-nowrap d-flex align-items-center gap-2 ${activePlanId === p.id ? 'btn-primary' : 'btn-light border'}`}
+                                onClick={() => setActivePlanId(p.id)}
+                            >
+                                <BookOpen size={16} /> {p.subject}
+                            </button>
+                        ))}
+                    </div>
+                    {activePlan && (
+                        <button
+                            className="btn btn-outline-danger btn-sm rounded-pill px-3 py-2 d-flex align-items-center gap-1 ms-auto"
+                            onClick={() => handleDeletePlan(activePlan.id)}
+                        >
+                            <Trash2 size={14} /> Delete Plan
+                        </button>
+                    )}
+                </div>
+            )}
+
+            {/* Main Content Area */}
+            {plans.length === 0 ? (
+                // Empty State / CTA
+                <div className="card glass border-0 rounded-4 p-5 text-center my-4">
+                    <div className="py-4">
+                        <div className="p-3 bg-primary bg-opacity-10 text-primary rounded-circle d-inline-flex mb-3">
+                            <Target size={48} />
+                        </div>
+                        <h2 className="fw-bold fs-4 mb-2">No Active Study Plan</h2>
+                        <p className="text-muted small mx-auto mb-4" style={{ maxWidth: '500px' }}>
+                            Enter your target exam date, total chapters, and daily available study time. Our AI scheduling algorithm will build an adaptive daily plan for you.
+                        </p>
+                        <button
+                            className="btn btn-primary btn-lg rounded-pill px-5 py-3 shadow"
+                            onClick={() => setShowCreateModal(true)}
+                        >
+                            Generate Study Plan Now
+                        </button>
+                    </div>
+
+                    {/* Example Showcase Card */}
+                    <div className="mt-4 p-4 rounded-4 bg-light text-start border">
+                        <h5 className="fw-bold fs-6 text-muted uppercase tracking-wider mb-3">Example AI Schedule Generation</h5>
+                        <div className="row g-3">
+                            <div className="col-md-3">
+                                <span className="small text-muted">Subject:</span>
+                                <div className="fw-bold">Information System Audit</div>
+                            </div>
+                            <div className="col-md-3">
+                                <span className="small text-muted">Target Exam Date:</span>
+                                <div className="fw-bold">Sept 15, 2026</div>
+                            </div>
+                            <div className="col-md-3">
+                                <span className="small text-muted">Chapters:</span>
+                                <div className="fw-bold">12 Chapters</div>
+                            </div>
+                            <div className="col-md-3">
+                                <span className="small text-muted">Available Time:</span>
+                                <div className="fw-bold">3 Hours / Day</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            ) : activePlan ? (
+                <div>
+                    {/* Telemetry Overview Cards */}
+                    <div className="row g-4 mb-4">
+                        <div className="col-md-6 col-lg-3">
+                            <div className="card glass border-0 rounded-4 p-4 h-100">
+                                <div className="d-flex align-items-center justify-content-between mb-2">
+                                    <span className="small text-muted fw-semibold">Overall Progress</span>
+                                    <div className="p-2 rounded-circle bg-primary bg-opacity-10 text-primary">
+                                        <Award size={18} />
+                                    </div>
+                                </div>
+                                <h3 className="display-6 fw-bold mb-1">{activeProgress.percentage}%</h3>
+                                <div className="progress rounded-pill mt-2" style={{ height: '8px' }}>
+                                    <div className="progress-bar bg-primary rounded-pill" role="progressbar" style={{ width: `${activeProgress.percentage}%` }}></div>
+                                </div>
+                                <div className="small text-muted mt-2">{activeProgress.completedTasks} of {activeProgress.totalTasks} tasks completed</div>
+                            </div>
+                        </div>
+
+                        <div className="col-md-6 col-lg-3">
+                            <div className="card glass border-0 rounded-4 p-4 h-100">
+                                <div className="d-flex align-items-center justify-content-between mb-2">
+                                    <span className="small text-muted fw-semibold">Days Remaining</span>
+                                    <div className="p-2 rounded-circle bg-info bg-opacity-10 text-info">
+                                        <Calendar size={18} />
+                                    </div>
+                                </div>
+                                <h3 className="display-6 fw-bold mb-1">{activeProgress.daysRemaining}</h3>
+                                <p className="small text-muted mb-0">Exam on {new Date(activePlan.examDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
+                            </div>
+                        </div>
+
+                        <div className="col-md-6 col-lg-3">
+                            <div className="card glass border-0 rounded-4 p-4 h-100">
+                                <div className="d-flex align-items-center justify-content-between mb-2">
+                                    <span className="small text-muted fw-semibold">Daily Commitment</span>
+                                    <div className="p-2 rounded-circle bg-warning bg-opacity-10 text-warning">
+                                        <Clock size={18} />
+                                    </div>
+                                </div>
+                                <h3 className="display-6 fw-bold mb-1">{activePlan.dailyHours} hrs</h3>
+                                <p className="small text-muted mb-0">{activePlan.totalChapters} chapters total</p>
+                            </div>
+                        </div>
+
+                        <div className="col-md-6 col-lg-3">
+                            <div className="card glass border-0 rounded-4 p-4 h-100">
+                                <div className="d-flex align-items-center justify-content-between mb-2">
+                                    <span className="small text-muted fw-semibold">Pace Assessment</span>
+                                    <div className={`p-2 rounded-circle bg-${activeProgress.paceColor} bg-opacity-10 text-${activeProgress.paceColor}`}>
+                                        <Flame size={18} />
+                                    </div>
+                                </div>
+                                <div className={`fw-bold text-${activeProgress.paceColor} fs-6 mb-1`}>{activeProgress.paceStatus}</div>
+                                <p className="small text-muted mb-0" style={{ fontSize: '0.75rem', lineHeight: '1.3' }}>
+                                    {activeProgress.paceMessage}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* AI Reschedule Banner */}
+                    <div className="card glass border-0 rounded-4 p-4 mb-4 bg-primary bg-opacity-10">
+                        <div className="d-flex align-items-center justify-content-between flex-wrap gap-3">
+                            <div className="d-flex align-items-center gap-3">
+                                <div className="p-3 bg-primary text-white rounded-circle">
+                                    <RotateCcw size={22} />
+                                </div>
+                                <div>
+                                    <h4 className="fw-bold fs-6 mb-1">Adaptive AI Rescheduling Engine</h4>
+                                    <p className="small text-muted mb-0">Missed a day or fell behind? Click below to dynamically redistribute uncompleted chapters across remaining days.</p>
+                                </div>
+                            </div>
+                            <button
+                                className="btn btn-primary rounded-pill px-4 py-2 d-flex align-items-center gap-2 shadow-sm"
+                                onClick={() => handleAdaptReschedule(activePlan.id)}
+                            >
+                                <RefreshCw size={16} /> Adapt & Reschedule Plan
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Day-by-Day Schedule Breakdown */}
+                    <div className="card glass border-0 rounded-4 p-4">
+                        <div className="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
+                            <h3 className="fs-5 fw-bold mb-0 d-flex align-items-center gap-2">
+                                <Layers size={20} className="text-primary" /> Daily Study Schedule & Tasks
+                            </h3>
+                            <span className="badge bg-primary bg-opacity-10 text-primary rounded-pill px-3 py-2 small">
+                                {activePlan.days.length} Total Days Scheduled
+                            </span>
+                        </div>
+
+                        <div className="d-flex flex-column gap-3">
+                            {activePlan.days.map((day, dayIdx) => {
+                                const dayCompletedTasks = day.tasks.filter(t => t.completed).length;
+                                const isDayComplete = day.tasks.length > 0 && dayCompletedTasks === day.tasks.length;
+
+                                return (
+                                    <div
+                                        key={dayIdx}
+                                        className={`p-4 rounded-4 border transition-all ${isDayComplete ? 'bg-success bg-opacity-10 border-success' : 'bg-light'}`}
+                                    >
+                                        <div className="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+                                            <div className="d-flex align-items-center gap-3">
+                                                <div className={`p-2 rounded-circle ${day.type === 'revision' ? 'bg-warning text-warning' : 'bg-primary text-primary'} bg-opacity-10`}>
+                                                    {day.type === 'revision' ? <Zap size={18} /> : <BookOpen size={18} />}
+                                                </div>
+                                                <div>
+                                                    <h4 className="fs-6 fw-bold mb-0">{day.title}</h4>
+                                                    <div className="small text-muted">
+                                                        {new Date(day.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} • Est. {day.targetHours} hours
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <span className={`badge rounded-pill px-3 py-2 small ${isDayComplete ? 'bg-success' : 'bg-secondary bg-opacity-10 text-dark'}`}>
+                                                {dayCompletedTasks} / {day.tasks.length} Done
+                                            </span>
+                                        </div>
+
+                                        {/* Task Checklist */}
+                                        <div className="d-flex flex-column gap-2 ps-md-4">
+                                            {day.tasks.map(task => (
+                                                <div
+                                                    key={task.id}
+                                                    className="d-flex align-items-center gap-3 p-2 rounded-3 bg-white bg-opacity-60 border"
+                                                    style={{ cursor: 'pointer' }}
+                                                    onClick={() => handleToggleTask(activePlan.id, dayIdx, task.id)}
+                                                >
+                                                    <button className="btn p-0 border-0 text-primary">
+                                                        {task.completed ? (
+                                                            <CheckCircle2 size={20} className="text-success fill-success" />
+                                                        ) : (
+                                                            <Circle size={20} className="text-muted" />
+                                                        )}
+                                                    </button>
+                                                    <span className={`small fw-medium ${task.completed ? 'text-decoration-line-through text-muted' : ''}`}>
+                                                        {task.text}
+                                                    </span>
+                                                    {task.estimatedMinutes && (
+                                                        <span className="small text-muted ms-auto pe-2" style={{ fontSize: '0.75rem' }}>
+                                                            ~{task.estimatedMinutes} mins
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </div>
+            ) : null}
+
+            {/* Create Plan Modal Wizard */}
+            <AnimatePresence>
+                {showCreateModal && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center p-3"
+                        style={{ background: 'rgba(0,0,0,0.5)', zIndex: 1050, backdropFilter: 'blur(4px)' }}
+                        onClick={() => setShowCreateModal(false)}
+                    >
+                        <motion.div
+                            initial={{ scale: 0.9, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.9, opacity: 0 }}
+                            className="card glass border-0 rounded-4 p-4 w-100 shadow-lg"
+                            style={{ maxWidth: '550px' }}
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <div className="d-flex justify-content-between align-items-center mb-3">
+                                <h3 className="fs-5 fw-bold mb-0 d-flex align-items-center gap-2">
+                                    Create AI Adaptive Study Plan
+                                </h3>
+                                <button
+                                    className="btn-close"
+                                    onClick={() => setShowCreateModal(false)}
+                                    aria-label="Close modal"
+                                ></button>
+                            </div>
+
+                            <form onSubmit={handleCreatePlan}>
+                                <div className="mb-3">
+                                    <label className="form-label small fw-semibold">Exam / Subject Name</label>
+                                    <input
+                                        type="text"
+                                        className="form-control rounded-pill px-3"
+                                        placeholder="e.g. Information System Audit"
+                                        value={formData.subject}
+                                        onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
+                                        required
+                                    />
+                                    <div className="d-flex flex-wrap gap-1 mt-2">
+                                        {PRESET_SUBJECTS.map((sub, idx) => (
+                                            <button
+                                                type="button"
+                                                key={idx}
+                                                className="btn btn-sm btn-light border rounded-pill px-2 py-1"
+                                                style={{ fontSize: '0.72rem' }}
+                                                onClick={() => setFormData({ ...formData, subject: sub })}
+                                            >
+                                                + {sub}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div className="row g-3 mb-3">
+                                    <div className="col-md-6">
+                                        <label className="form-label small fw-semibold">Target Exam Date</label>
+                                        <input
+                                            type="date"
+                                            className="form-control rounded-pill px-3"
+                                            min={new Date(Date.now() + 86400000).toISOString().split('T')[0]}
+                                            value={formData.examDate}
+                                            onChange={(e) => setFormData({ ...formData, examDate: e.target.value })}
+                                            required
+                                        />
+                                    </div>
+
+                                    <div className="col-md-6">
+                                        <label className="form-label small fw-semibold">Total Chapters / Topics</label>
+                                        <input
+                                            type="number"
+                                            className="form-control rounded-pill px-3"
+                                            min="1"
+                                            max="100"
+                                            value={formData.totalChapters}
+                                            onChange={(e) => setFormData({ ...formData, totalChapters: e.target.value })}
+                                            required
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="row g-3 mb-4">
+                                    <div className="col-md-6">
+                                        <label className="form-label small fw-semibold">Daily Study Time (Hours)</label>
+                                        <input
+                                            type="number"
+                                            step="0.5"
+                                            className="form-control rounded-pill px-3"
+                                            min="0.5"
+                                            max="14"
+                                            value={formData.dailyHours}
+                                            onChange={(e) => setFormData({ ...formData, dailyHours: e.target.value })}
+                                            required
+                                        />
+                                    </div>
+
+                                    <div className="col-md-6">
+                                        <label className="form-label small fw-semibold">Intensity Mode</label>
+                                        <select
+                                            className="form-select rounded-pill px-3"
+                                            value={formData.intensity}
+                                            onChange={(e) => setFormData({ ...formData, intensity: e.target.value })}
+                                        >
+                                            <option value="balanced">Balanced (Standard Pace)</option>
+                                            <option value="intensive">Intensive (Early Finish & Revisions)</option>
+                                            <option value="light">Light Pace (Spread Evenly)</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div className="d-flex justify-content-end gap-2">
+                                    <button
+                                        type="button"
+                                        className="btn btn-light rounded-pill px-4"
+                                        onClick={() => setShowCreateModal(false)}
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        className="btn btn-primary rounded-pill px-4 d-flex align-items-center gap-2"
+                                    >
+                                        Generate Schedule
+                                    </button>
+                                </div>
+                            </form>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </div>
+    );
+}

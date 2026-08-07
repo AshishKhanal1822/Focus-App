@@ -7,7 +7,7 @@ import SupabaseAdapter from './agents/adapters/SupabaseAdapter';
 const faqs = [
     {
         q: "Is Focus free to use?",
-        a: "Yes! Focus is completely free and includes all features: Todo List, Focus Timer, Reading Library, and Writing tools. All your data syncs to the cloud when you create an account."
+        a: "Yes! Focus is completely free and includes all features: Todo List, Focus Timer, Reading Library, and Writing tools. When using the app as a guest, your data is saved locally on your device. However, if you register for a free account, your data will be securely backed up to the cloud."
     },
     {
         q: "How does the cloud sync work?",
@@ -18,8 +18,8 @@ const faqs = [
         a: "Absolutely! Focus is a Progressive Web App (PWA), which means it's designed to work offline. Your changes will sync once you're back online."
     },
     {
-        q: "Do I need to create an account?",
-        a: "No! You can use Focus as a guest with local storage. However, creating a free account enables cloud sync, allowing you to access your data from any device."
+        q: "What are the benefits of creating an account?",
+        a: "Creating an account enables cloud synchronization, allowing you to access your data seamlessly across multiple devices. It also unlocks advanced analytics, letting you track your daily and weekly focus statistics over time."
     }
 ];
 

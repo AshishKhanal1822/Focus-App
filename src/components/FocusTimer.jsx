@@ -7,7 +7,7 @@ import './FocusTimer.css';
 import FocusHistory from './FocusHistory.jsx';
 import { useAgentEvent } from '../hooks/useAgentEvent';
 import { eventBus } from '../agents/core/EventBus.js';
-import { Play, Square, Coffee, Brain, Armchair, Clock } from 'lucide-react';
+import { Play, Square, Coffee, Brain, Armchair, Clock, Pause } from 'lucide-react';
 
 export default function FocusTimer() {
     // Payload shape: { status: 'idle'|'running'|'completed', remainingMs: number }
@@ -55,6 +55,15 @@ export default function FocusTimer() {
         }
     };
 
+    const handlePause = (e) => {
+        if (e) { e.preventDefault(); e.stopPropagation(); }
+        if (state.status === 'paused') {
+            eventBus.emit('FOCUS_RESUME');
+        } else {
+            eventBus.emit('FOCUS_PAUSE');
+        }
+    };
+
     const handleModeSelect = (m) => {
         if (state.status !== 'running') {
             setMode(m);
@@ -70,7 +79,7 @@ export default function FocusTimer() {
                         key={m}
                         onClick={() => handleModeSelect(m)}
                         className={`btn btn-sm border-0 rounded-pill d-flex align-items-center gap-2 px-3 py-2 transition-all ${mode === m ? 'bg-white shadow-sm fw-bold text-body' : 'text-muted hover-bg-white-10'}`}
-                        disabled={state.status === 'running'}
+                        disabled={state.status === 'running' || state.status === 'paused'}
                         style={{ fontSize: '0.85rem' }}
                     >
                         <span className={mode === m ? modes[m].color : ''}>{modes[m].icon}</span>
@@ -83,9 +92,12 @@ export default function FocusTimer() {
                 {/* Timer Display */}
                 <div className="mb-4 position-relative">
                     <div className="display-1 fw-bold font-monospace" style={{ letterSpacing: '-2px' }}>
-                        {state.status === 'running' ? (
+                        {(state.status === 'running' || state.status === 'paused') ? (
                             <>
-                                {minutes}:{seconds}
+                                <span className={state.status === 'paused' ? 'text-warning' : ''}>{minutes}:{seconds}</span>
+                                {state.status === 'paused' && (
+                                    <div className="small text-warning fw-semibold mt-1" style={{ fontSize: '0.8rem', letterSpacing: '0.1em' }}>⏸ PAUSED</div>
+                                )}
                             </>
                         ) : (
                             <span className="opacity-50">
@@ -96,14 +108,25 @@ export default function FocusTimer() {
                 </div>
 
                 {/* Controls */}
-                {state.status === 'running' ? (
-                    <button
-                        type="button"
-                        className="btn btn-danger btn-lg rounded-pill px-5 d-flex align-items-center gap-2 mx-auto hover-scale shadow-sm"
-                        onClick={handleCancel}
-                    >
-                        <Square size={20} fill="currentColor" /> Stop
-                    </button>
+                {(state.status === 'running' || state.status === 'paused') ? (
+                    <div className="d-flex gap-2 justify-content-center flex-wrap">
+                        <button
+                            type="button"
+                            className={`btn btn-lg rounded-pill px-4 d-flex align-items-center gap-2 shadow-sm ${
+                                state.status === 'paused' ? 'btn-success text-white' : 'btn-warning text-dark'
+                            }`}
+                            onClick={handlePause}
+                        >
+                            {state.status === 'paused' ? <><Play size={18} fill="currentColor" /> Resume</> : <><Pause size={18} /> Pause</>}
+                        </button>
+                        <button
+                            type="button"
+                            className="btn btn-danger btn-lg rounded-pill px-4 d-flex align-items-center gap-2 shadow-sm"
+                            onClick={handleCancel}
+                        >
+                            <Square size={18} fill="currentColor" /> Stop
+                        </button>
+                    </div>
                 ) : (
                     <button
                         type="button"

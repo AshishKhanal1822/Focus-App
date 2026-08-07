@@ -9,11 +9,12 @@ import { dnd } from '../../utils/dnd.js';
 export class FocusManagerAgent extends BaseAgent {
     constructor() {
         super();
-        // Default session length in minutes
         this.defaultDuration = 25;
         this.timerId = null;
         this.lastCancelTime = 0;
         this.wakeLock = null;
+        this.isPaused = false;
+        this.pausedEndTime = null; // stores endTime when paused to resume from
         this.handleVisibilityChange = () => {
             if (this.timerId && document.visibilityState === 'visible') {
                 this.requestWakeLock();
@@ -24,11 +25,10 @@ export class FocusManagerAgent extends BaseAgent {
     /** Initialise listeners */
     init() {
         if (!super.init()) return;
-        // UI can request a new session
         this.on('FOCUS_START', this.startSession.bind(this));
-        // UI can request to stop / cancel
         this.on('FOCUS_CANCEL', this.cancelSession.bind(this));
-        // Restore any persisted session on load
+        this.on('FOCUS_PAUSE', this.pauseSession.bind(this));
+        this.on('FOCUS_RESUME', this.resumeFromPause.bind(this));
         const persisted = LocalStorageAdapter.get('activeFocusSession');
         if (persisted && persisted.remainingMs > 0) {
             this.resumeSession(persisted);
@@ -84,29 +84,57 @@ export class FocusManagerAgent extends BaseAgent {
         });
     }
 
+    /** Pause the current session */
+    pauseSession() {
+        if (!this.timerId || this.isPaused) return;
+        this.clearTimer();
+        this.isPaused = true;
+        // Store current remaining time
+        const remainingMs = Math.max(this.pausedEndTime ? this.pausedEndTime - Date.now() : 0, 0);
+        this.emit('FOCUS_STATE_UPDATED', { status: 'paused', remainingMs, endTime: this.pausedEndTime });
+        this.emit('FOCUS_PAUSED', { pausedAt: Date.now() });
+    }
+
+    /** Resume from pause */
+    resumeFromPause() {
+        if (!this.isPaused || !this.pausedEndTime) return;
+        const remainingMs = Math.max(this.pausedEndTime - Date.now(), 0);
+        if (remainingMs <= 0) {
+            this.cancelSession();
+            return;
+        }
+        const newEndTime = Date.now() + remainingMs;
+        this.pausedEndTime = newEndTime;
+        this.isPaused = false;
+        this.emit('FOCUS_STATE_UPDATED', { status: 'running', remainingMs, endTime: newEndTime });
+        this.emit('FOCUS_RESUMED', { resumedAt: Date.now() });
+        this.timerId = setInterval(() => this.tick(newEndTime), 1000);
+        this.requestWakeLock();
+    }
+
     /** Cancel the current session */
     cancelSession() {
         this.clearTimer();
         this.releaseWakeLock();
         this.lastCancelTime = Date.now();
-        this.currentDuration = null; // Clear duration on cancel
-        // StorageAgent will see status: 'idle' and clear/update storage
+        this.currentDuration = null;
+        this.isPaused = false;
+        this.pausedEndTime = null;
         this.emit('FOCUS_STATE_UPDATED', { status: 'idle', remainingMs: 0 });
-
-        // Turn off DND
         dnd.disableDnd();
     }
 
     /** Internal tick – called each second */
     tick(endTime) {
         const remainingMs = Math.max(endTime - Date.now(), 0);
+        this.pausedEndTime = endTime; // keep updated for pause-resume
         this.emit('FOCUS_STATE_UPDATED', { status: remainingMs ? 'running' : 'completed', remainingMs, endTime });
         if (remainingMs === 0) {
             this.clearTimer();
             this.releaseWakeLock();
-            // Turn off DND
+            this.isPaused = false;
+            this.pausedEndTime = null;
             dnd.disableDnd();
-            // Pass stats for the history log
             this.emit('FOCUS_COMPLETED', { duration: this.currentDuration || this.defaultDuration, completedAt: new Date() });
         }
     }

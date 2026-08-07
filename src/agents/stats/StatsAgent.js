@@ -201,7 +201,8 @@ export class StatsAgent extends BaseAgent {
     }
 
     saveToLocalHistory(dateStr, increments) {
-        const historyKey = 'focus_stats_local_history';
+        const user = SupabaseAdapter.cachedUser;
+        const historyKey = user ? `focus_stats_local_history_${user.id}` : 'focus_stats_local_history';
         const history = LocalStorageAdapter.get(historyKey) || {};
         
         if (!history[dateStr]) {

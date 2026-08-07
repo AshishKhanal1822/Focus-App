@@ -6,6 +6,7 @@ import { NotificationAgent } from './focus/NotificationAgent.js';
 import { StorageAgent } from './storage/StorageAgent.js';
 import { AuthAgent } from './auth/AuthAgent.js';
 import { StatsAgent } from './stats/StatsAgent.js';
+import { DistractionAgent } from './distraction/DistractionAgent.js';
 import SyncAgent from './core/SyncAgent.js';
 
 let initialized = false;
@@ -17,6 +18,7 @@ export const agents = {
     storageAgent: new StorageAgent(),
     authAgent: new AuthAgent(),
     statsAgent: new StatsAgent(),
+    distractionAgent: new DistractionAgent(),
     syncAgent: SyncAgent
 };
 
@@ -31,6 +33,7 @@ export async function initAppAgents() {
             agents.focusAgent.init(),
             agents.notificationAgent.init(),
             agents.statsAgent.init(),
+            agents.distractionAgent.init(),
             agents.syncAgent.init()
         ]);
         initialized = true;

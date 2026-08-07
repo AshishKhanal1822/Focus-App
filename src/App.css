@@ -231,6 +231,45 @@
     color: var(--primary-light) !important;
 }
 
+/* DARK MODE TABLE & LIST STYLES */
+[data-theme='dark'] .table {
+    color: #f1f5f9 !important;
+    --bs-table-color: #f1f5f9;
+    --bs-table-bg: transparent;
+    --bs-table-border-color: rgba(255, 255, 255, 0.1);
+    --bs-table-hover-bg: rgba(255, 255, 255, 0.06);
+    --bs-table-hover-color: #ffffff;
+}
+
+[data-theme='dark'] .table th,
+[data-theme='dark'] .table td {
+    color: #f1f5f9 !important;
+    border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+[data-theme='dark'] .table thead th,
+[data-theme='dark'] .table thead tr {
+    color: #94a3b8 !important;
+}
+
+[data-theme='dark'] .table .fw-bold,
+[data-theme='dark'] .table .fw-medium,
+[data-theme='dark'] .table .fw-semibold {
+    color: #ffffff !important;
+}
+
+[data-theme='dark'] .table .text-muted {
+    color: #94a3b8 !important;
+}
+
+[data-theme='dark'] .table-hover tbody tr:hover {
+    background-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+[data-theme='dark'] .table-hover tbody tr:hover td {
+    color: #ffffff !important;
+}
+
 * {
     box-sizing: border-box;
     margin: 0;
@@ -882,4 +921,23 @@ footer {
     pointer-events: none;
     display: block;
     /* For Firefox */
+}
+
+/* Responsive Table Min-Width for Mobile and Tablet Views Only */
+@media (max-width: 991.98px) {
+    .responsive-admin-table {
+        min-width: 800px !important;
+    }
+}
+
+.animate-spin {
+    animation: spin 1s linear infinite;
+}
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
 }

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, Suspense, lazy } from "react"
-import { BrowserRouter as Router, Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Link, useLocation, useNavigate, Navigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { WifiOff } from 'lucide-react';
 
@@ -14,6 +14,8 @@ const Library = lazy(() => import('./Library'));
 const Writing = lazy(() => import('./Writing'));
 const Dashboard = lazy(() => import('./Dashboard'));
 const Admin = lazy(() => import('./Admin'));
+const StudyPlanner = lazy(() => import('./StudyPlanner'));
+const DistractionDashboard = lazy(() => import('./DistractionDashboard'));
 
 import ScrollToTop from './ScrollToTop';
 import MusicPlayer from './components/MusicPlayer.jsx';
@@ -23,10 +25,10 @@ const WelcomeAnimation = lazy(() => import('./components/WelcomeAnimation.jsx'))
 import NavProfile from './components/NavProfile.jsx';
 import NavFocusTimer from './components/NavFocusTimer.jsx';
 import adminStore from './utils/adminStore.js';
-// Agents are initialized dynamically in useEffect to optimize initial load
 import SupabaseAdapter from './agents/adapters/SupabaseAdapter.js';
 import { eventBus } from './agents/core/EventBus.js';
 import { useAgentEvent } from './hooks/useAgentEvent';
+import { initAppAgents } from './agents/index.js';
 
 // Loading Spinner Component
 // Subtle Top Loading Bar
@@ -105,9 +107,7 @@ function AppContent({ theme, toggleTheme }) {
 
   // Initialise agents once for the app lifecycle
   useEffect(() => {
-    import('./agents/index.js').then(({ initAppAgents }) => {
-      initAppAgents();
-    });
+    initAppAgents();
   }, []);
 
   useEffect(() => {
@@ -183,6 +183,7 @@ function AppContent({ theme, toggleTheme }) {
       case '/library': import('./Library'); break;
       case '/writing': import('./Writing'); break;
       case '/dashboard': import('./Dashboard'); break;
+      case '/planner': import('./StudyPlanner'); break;
       case '/admin': import('./Admin'); break;
       default: break;
     }
@@ -260,11 +261,13 @@ function AppContent({ theme, toggleTheme }) {
           </div>
 
           <div className={`collapse navbar-collapse ${isNavOpen ? 'show' : ''}`} id="navbarNav">
-            <ul className="navbar-nav mx-auto">
-              <li className="nav-item">
-                <NavFocusTimer />
-              </li>
-            </ul>
+            {!isAdmin && (
+              <ul className="navbar-nav mx-auto">
+                <li className="nav-item">
+                  <NavFocusTimer />
+                </li>
+              </ul>
+            )}
             {!isFocusActive && (
               <ul className="navbar-nav ms-auto">
                 {/* When admin is logged in, show ONLY the Admin Panel link */}
@@ -311,27 +314,26 @@ function AppContent({ theme, toggleTheme }) {
                         About
                       </Link>
                     </li>
+                    <li className="nav-item">
+                      <Link
+                        className={`nav-link px-3 ${location.pathname === '/planner' ? 'active' : ''}`}
+                        to="/planner"
+                        onClick={handleNavClick('/planner')}
+                        onMouseEnter={handlePrefetch('/planner')}
+                      >
+                        AI Planner
+                      </Link>
+                    </li>
+
                     {user && (
                       <li className="nav-item">
                         <Link
-                          className={`nav-link px-3 ${location.pathname === '/library' ? 'active' : ''}`}
-                          to="/library"
-                          onClick={handleNavClick('/library')}
-                          onMouseEnter={handlePrefetch('/library')}
+                          className={`nav-link px-3 ${location.pathname === '/distraction' ? 'active' : ''}`}
+                          to="/distraction"
+                          onClick={handleNavClick('/distraction')}
+                          onMouseEnter={() => import('./DistractionDashboard')}
                         >
-                          Library
-                        </Link>
-                      </li>
-                    )}
-                    {user && (
-                      <li className="nav-item">
-                        <Link
-                          className={`nav-link px-3 ${location.pathname === '/dashboard' ? 'active' : ''}`}
-                          to="/dashboard"
-                          onClick={handleNavClick('/dashboard')}
-                          onMouseEnter={handlePrefetch('/dashboard')}
-                        >
-                          Dashboard
+                          Focus Analysis
                         </Link>
                       </li>
                     )}
@@ -370,6 +372,8 @@ function AppContent({ theme, toggleTheme }) {
                 <Route path="/library" element={<Library />} />
                 <Route path="/writing" element={<Writing />} />
                 <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/planner" element={<StudyPlanner user={user} />} />
+                <Route path="/distraction" element={!user ? <Navigate to="/" /> : <DistractionDashboard />} />
                 <Route path="/admin" element={<Admin />} />
               </Routes>
             </motion.div>

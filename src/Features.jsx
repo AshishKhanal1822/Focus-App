@@ -1,38 +1,38 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Zap, Shield, Smartphone, Globe, MessageSquare, Star } from 'lucide-react';
+import { WifiOff, Cloud, Clock, Music, PenTool, BookOpen } from 'lucide-react';
 
 function Features() {
     const features = [
         {
-            icon: <Zap className="text-warning" />,
-            title: 'Lightning Fast',
-            description: 'Experience instant response times and smooth transitions throughout the app.'
+            icon: <WifiOff className="text-warning" />,
+            title: 'Offline Mode',
+            description: 'Work seamlessly without internet connection. Your data is safely stored in IndexedDB and LocalStorage.'
         },
         {
-            icon: <Shield className="text-success" />,
-            title: 'Secure by Design',
-            description: 'Your data is encrypted and stored safely, ensuring your privacy is always protected.'
+            icon: <Cloud className="text-primary" />,
+            title: 'Cloud Save',
+            description: 'Sync your focus time, writing statistics, and reading logs automatically with Supabase when online.'
         },
         {
-            icon: <Smartphone className="text-info" />,
-            title: 'Mobile First',
-            description: 'Access your tasks and notes from any device with our fully responsive design.'
+            icon: <Clock className="text-info" />,
+            title: 'Focus Timer',
+            description: 'Keep track of your deep focus blocks with a customizable countdown timer.'
         },
         {
-            icon: <Globe className="text-primary" />,
-            title: 'Global Sync',
-            description: 'Keep your workspace synced across all your browsers and machines instantly.'
+            icon: <Music className="text-success" />,
+            title: 'Ambient Soundscape',
+            description: 'Play soothing background music and ambient sounds to block out external noise.'
         },
         {
-            icon: <MessageSquare className="text-secondary" />,
-            title: 'Collaborative',
-            description: 'Share your focus boards with team members and work together seamlessly.'
+            icon: <PenTool className="text-danger" />,
+            title: 'Writing Workspace',
+            description: 'Unleash your creative output using our distraction-free, rich writing space.'
         },
         {
-            icon: <Star className="text-danger" />,
-            title: 'Premium Quality',
-            description: 'Enjoy a hand-crafted interface built for professional productivity.'
+            icon: <BookOpen className="text-secondary" />,
+            title: 'Library Reader',
+            description: 'Access a community collection of books and read them in a clean, focused environment.'
         }
     ];
 

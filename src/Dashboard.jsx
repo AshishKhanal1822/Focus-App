@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import {
     Activity, Clock, BookOpen, PenTool, CheckSquare, 
-    Calendar, BarChart2, Award, ChevronLeft
+    Calendar, BarChart2, Award, ChevronLeft, Brain, TrendingUp, TrendingDown, AlertCircle, Lightbulb, Flame
 } from 'lucide-react';
 import SupabaseAdapter from './agents/adapters/SupabaseAdapter.js';
 import { eventBus } from './agents/core/EventBus.js';
@@ -84,7 +84,8 @@ export default function Dashboard() {
             }
 
             // Fallback & local merge
-            const localHistory = localStorage.getItem('focus_stats_local_history');
+            const localKey = user ? `focus_stats_local_history_${user.id}` : 'focus_stats_local_history';
+            const localHistory = localStorage.getItem(localKey);
             const parsedLocal = localHistory ? JSON.parse(localHistory) : {};
 
             const mergedMap = {};
@@ -297,6 +298,168 @@ export default function Dashboard() {
     const graphWidth = chartWidth - paddingLeft - paddingRight;
     const graphHeight = chartHeight - paddingTop - paddingBottom;
 
+    // --- AI INSIGHTS ENGINE ---
+    // Analyzes real session data and generates personalized, actionable advice
+    const generateInsights = () => {
+        const insights = [];
+
+        // --- Focus Pattern Analysis ---
+        const focusDays = weeklyData.filter(d => d.focus_time_seconds > 0);
+        const weekendDays = weeklyData.filter(d => {
+            const day = new Date(d.date + 'T00:00:00').getDay(); // 0=Sun, 6=Sat
+            return day === 0 || day === 6;
+        });
+        const weekdayFocusDays = weeklyData.filter(d => {
+            const day = new Date(d.date + 'T00:00:00').getDay();
+            return day >= 1 && day <= 5 && d.focus_time_seconds > 0;
+        });
+        const weekendFocusDays = weeklyData.filter(d => {
+            const day = new Date(d.date + 'T00:00:00').getDay();
+            return (day === 0 || day === 6) && d.focus_time_seconds > 0;
+        });
+
+        const avgFocusSec = focusDays.length > 0
+            ? focusDays.reduce((a, d) => a + d.focus_time_seconds, 0) / focusDays.length
+            : 0;
+        const avgFocusMin = Math.round(avgFocusSec / 60);
+
+        // Tip: average focus session length
+        if (avgFocusMin > 0 && avgFocusMin < 30) {
+            insights.push({
+                icon: TrendingUp,
+                color: '#f43f5e',
+                bg: 'rgba(244,63,94,0.08)',
+                title: 'Build Session Stamina',
+                text: `Your average focus session is ${avgFocusMin} min. Try extending to 25 min for deeper concentration using the Pomodoro technique.`
+            });
+        } else if (avgFocusMin >= 30 && avgFocusMin <= 50) {
+            insights.push({
+                icon: Flame,
+                color: '#f97316',
+                bg: 'rgba(249,115,22,0.08)',
+                title: 'Strong Focus Rhythm',
+                text: `Your average session is ${avgFocusMin} min — a great range! Try taking a 10-min break after each session to maintain peak output.`
+            });
+        } else if (avgFocusMin > 50) {
+            insights.push({
+                icon: AlertCircle,
+                color: '#eab308',
+                bg: 'rgba(234,179,8,0.08)',
+                title: 'Watch for Fatigue',
+                text: `Your average session is ${avgFocusMin} min. Productivity often drops after 50 min. Try splitting into two 40-min blocks for better retention.`
+            });
+        }
+
+        // Tip: weekday vs weekend consistency
+        if (weekdayFocusDays.length > 0 && weekendFocusDays.length === 0 && weekendDays.length > 0) {
+            insights.push({
+                icon: Calendar,
+                color: '#8b5cf6',
+                bg: 'rgba(139,92,246,0.08)',
+                title: 'Weekend Gap Detected',
+                text: `You complete more sessions on weekdays. Even one short session on weekends will build momentum and strengthen your streak.`
+            });
+        } else if (weekendFocusDays.length > 0 && weekdayFocusDays.length === 0) {
+            insights.push({
+                icon: Calendar,
+                color: '#8b5cf6',
+                bg: 'rgba(139,92,246,0.08)',
+                title: 'Weekday Potential',
+                text: `You're active on weekends but quiet on weekdays. Adding even one session Monday–Friday will significantly boost your weekly output.`
+            });
+        } else if (weekdayFocusDays.length >= 3 && weekendFocusDays.length >= 1) {
+            insights.push({
+                icon: TrendingUp,
+                color: '#10b981',
+                bg: 'rgba(16,185,129,0.08)',
+                title: 'Great Weekly Balance',
+                text: `You're active ${weekdayFocusDays.length} weekday(s) and ${weekendFocusDays.length} weekend day(s) this week. Consistency across all days accelerates long-term learning.`
+            });
+        }
+
+        // Tip: focus streak (consecutive days)
+        let streak = 0;
+        for (let i = weeklyData.length - 1; i >= 0; i--) {
+            if (weeklyData[i].focus_sessions_completed > 0) streak++;
+            else break;
+        }
+        if (streak >= 3) {
+            insights.push({
+                icon: Flame,
+                color: '#f43f5e',
+                bg: 'rgba(244,63,94,0.08)',
+                title: `${streak}-Day Streak!`,
+                text: `You've been consistent for ${streak} days in a row. Keep it up — habits form fastest when you protect your streak!`
+            });
+        } else if (streak === 0 && totalFocusSessions > 0) {
+            insights.push({
+                icon: AlertCircle,
+                color: '#eab308',
+                bg: 'rgba(234,179,8,0.08)',
+                title: 'Restart Your Streak',
+                text: `You had ${totalFocusSessions} session(s) this week but broke your daily streak. Start a session today to rebuild momentum!`
+            });
+        }
+
+        // Tip: best day of the week
+        const bestDay = [...weeklyData].sort((a, b) => b.focus_time_seconds - a.focus_time_seconds)[0];
+        if (bestDay && bestDay.focus_time_seconds > 0) {
+            const bestDayName = new Date(bestDay.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long' });
+            insights.push({
+                icon: Lightbulb,
+                color: '#6366f1',
+                bg: 'rgba(99,102,241,0.08)',
+                title: 'Peak Day Identified',
+                text: `${bestDayName} is your most productive day with ${Math.round(bestDay.focus_time_seconds / 60)} min of focus. Schedule your hardest tasks on your best day.`
+            });
+        }
+
+        // Tip: reading habit
+        if (totalReadingTimeSec < 600 && totalFocusSessions > 2) {
+            insights.push({
+                icon: BookOpen,
+                color: '#10b981',
+                bg: 'rgba(16,185,129,0.08)',
+                title: 'Try Deep Reading',
+                text: `You have strong focus but low reading time. Pairing focused reading sessions with your focus blocks can compound your learning output.`
+            });
+        } else if (totalReadingTimeSec >= 3600) {
+            insights.push({
+                icon: BookOpen,
+                color: '#10b981',
+                bg: 'rgba(16,185,129,0.08)',
+                title: 'Reading Champion',
+                text: `You've read for ${formatDuration(totalReadingTimeSec)} this week. Readers who combine note-taking while reading retain 40% more content.`
+            });
+        }
+
+        // Tip: writing output
+        if (totalWordsWritten > 500) {
+            insights.push({
+                icon: PenTool,
+                color: '#8b5cf6',
+                bg: 'rgba(139,92,246,0.08)',
+                title: 'Prolific Writer',
+                text: `${totalWordsWritten} words this week! Writing regularly reinforces memory. Try setting a daily word-count goal to stay consistent.`
+            });
+        }
+
+        // Fallback if no data yet
+        if (insights.length === 0) {
+            insights.push({
+                icon: Lightbulb,
+                color: '#6366f1',
+                bg: 'rgba(99,102,241,0.08)',
+                title: 'Start Your Journey',
+                text: `Complete a few focus sessions and reading blocks — your personalized AI insights will appear here based on your real patterns!`
+            });
+        }
+
+        return insights.slice(0, 4); // show top 4 most relevant
+    };
+
+    const smartInsights = generateInsights();
+
     return (
         <div className="container py-5" style={{ minHeight: '80vh' }}>
             <div className="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
@@ -305,10 +468,16 @@ export default function Dashboard() {
                         <ChevronLeft size={16} /> Back to Home
                     </Link>
                     <h1 className="display-5 fw-bold mb-0">Productivity Dashboard</h1>
-                    <p className="text-muted mb-0">Personal stats based on your active usage</p>
+                    <p className="text-muted mb-0">AI-powered insights based on your real usage patterns.</p>
                 </div>
                 
-                <div className="d-flex gap-2">
+                <div className="d-flex gap-2 align-items-center flex-wrap">
+                    <Link 
+                        to="/distraction" 
+                        className="btn btn-outline-primary rounded-pill px-3 py-2 d-flex align-items-center gap-2 small shadow-sm"
+                    >
+                        <Brain size={16} /> Focus &amp; Distraction Analysis
+                    </Link>
                     <div className="btn-group bg-white rounded-3 shadow-sm p-1 border">
                         <button 
                             className={`btn btn-sm rounded-2 border-0 ${viewMode === 'daily' ? 'btn-primary' : 'bg-transparent text-body'}`}
@@ -481,44 +650,44 @@ export default function Dashboard() {
                             </div>
                         </div>
 
-                        {/* Productivity Insights */}
+                        {/* AI Personalized Insights Panel */}
                         <div className="col-lg-4">
-                            <div className="card border-0 shadow-sm bg-white rounded-4 p-4 h-100">
-                                <div className="d-flex align-items-center gap-2 mb-4">
-                                    <Award size={20} className="text-accent" />
-                                    <h2 className="fs-5 fw-bold mb-0">Insights & Milestones</h2>
+                            <div className="card border-0 shadow-sm glass rounded-4 p-4 h-100">
+                                <div className="d-flex align-items-center gap-2 mb-1">
+                                    <div className="p-2 rounded-circle" style={{ background: 'rgba(99,102,241,0.12)' }}>
+                                        <Brain size={18} style={{ color: '#6366f1' }} />
+                                    </div>
+                                    <div>
+                                        <h2 className="fs-5 fw-bold mb-0">AI Insights</h2>
+                                        <p className="small text-muted mb-0" style={{ fontSize: '0.75rem' }}>Based on your real usage patterns</p>
+                                    </div>
                                 </div>
 
-                                <div className="d-flex flex-column gap-3">
-                                    <div className="d-flex gap-3 align-items-start p-3 bg-light rounded-3">
-                                        <span className="fs-3">🎯</span>
-                                        <div>
-                                            <h4 className="fs-6 fw-bold mb-1">Consistency Streak</h4>
-                                            <p className="small text-muted mb-0">
-                                                You completed <strong>{totalFocusSessions} focus sessions</strong> this week. That's a great step towards your cognitive endurance!
-                                            </p>
-                                        </div>
-                                    </div>
-
-                                    <div className="d-flex gap-3 align-items-start p-3 bg-light rounded-3">
-                                        <span className="fs-3">📚</span>
-                                        <div>
-                                            <h4 className="fs-6 fw-bold mb-1">Deep Reading Habit</h4>
-                                            <p className="small text-muted mb-0">
-                                                You spent <strong>{formatDuration(totalReadingTimeSec)}</strong> reading in the library. Developing deep focus through text trains your attention spans.
-                                            </p>
-                                        </div>
-                                    </div>
-
-                                    <div className="d-flex gap-3 align-items-start p-3 bg-light rounded-3">
-                                        <span className="fs-3">✍️</span>
-                                        <div>
-                                            <h4 className="fs-6 fw-bold mb-1">Creative Output</h4>
-                                            <p className="small text-muted mb-0">
-                                                Your writing productivity reached <strong>{totalWordsWritten} words</strong> this week. Strive to build writing discipline daily.
-                                            </p>
-                                        </div>
-                                    </div>
+                                <div className="d-flex flex-column gap-2 mt-3">
+                                    {smartInsights.map((insight, i) => {
+                                        const Icon = insight.icon;
+                                        return (
+                                            <motion.div
+                                                key={i}
+                                                initial={{ opacity: 0, x: 16 }}
+                                                animate={{ opacity: 1, x: 0 }}
+                                                transition={{ delay: i * 0.1, duration: 0.4 }}
+                                                className="d-flex gap-3 align-items-start p-3 rounded-3"
+                                                style={{ background: insight.bg, border: `1px solid ${insight.color}22` }}
+                                            >
+                                                <div
+                                                    className="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
+                                                    style={{ width: 34, height: 34, background: `${insight.color}18`, color: insight.color }}
+                                                >
+                                                    <Icon size={16} />
+                                                </div>
+                                                <div>
+                                                    <h4 className="fs-6 fw-semibold mb-1" style={{ color: insight.color }}>{insight.title}</h4>
+                                                    <p className="small text-muted mb-0" style={{ lineHeight: 1.45 }}>{insight.text}</p>
+                                                </div>
+                                            </motion.div>
+                                        );
+                                    })}
                                 </div>
                             </div>
                         </div>

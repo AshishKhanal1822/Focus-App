@@ -11,6 +11,7 @@ import {
 export default function Profile({ initialUser = null }) {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
     const [isLogin, setIsLogin] = useState(true);
     const [message, setMessage] = useState('');
     const [user, setUser] = useState(initialUser);
@@ -33,6 +34,11 @@ export default function Profile({ initialUser = null }) {
     const handleAuth = async (e) => {
         e.preventDefault();
         setMessage('');
+
+        if (!isLogin && password !== confirmPassword) {
+            setMessage('Passwords do not match.');
+            return;
+        }
 
         const normalizedEmail = (email || '').trim().toLowerCase();
 
@@ -302,6 +308,27 @@ export default function Profile({ initialUser = null }) {
                     />
                 </div>
 
+                <AnimatePresence initial={false}>
+                    {!isLogin && (
+                        <motion.div
+                            initial={{ opacity: 0, height: 0, marginTop: 0 }}
+                            animate={{ opacity: 1, height: 'auto', marginTop: 16 }}
+                            exit={{ opacity: 0, height: 0, marginTop: 0 }}
+                            className="position-relative"
+                            style={{ overflow: 'hidden' }}
+                        >
+                            <input
+                                type="password"
+                                placeholder="Confirm Password"
+                                className="form-control form-control-lg px-4"
+                                value={confirmPassword}
+                                onChange={e => setConfirmPassword(e.target.value)}
+                                required={!isLogin}
+                            />
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+
                 {message && (
                     <motion.div
                         initial={{ opacity: 0, height: 0 }}
@@ -323,7 +350,7 @@ export default function Profile({ initialUser = null }) {
                     <button
                         type="button"
                         className="btn btn-link text-decoration-none small text-muted hover-scale"
-                        onClick={() => { setIsLogin(!isLogin); setMessage(''); }}
+                        onClick={() => { setIsLogin(!isLogin); setMessage(''); setConfirmPassword(''); }}
                     >
                         {isLogin ? "Don't have an account? Create one" : "Already have an account? Sign in"}
                     </button>

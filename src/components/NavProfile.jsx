@@ -130,7 +130,7 @@ export default function NavProfile() {
             {/* Dropdown Content */}
             {isOpen && (
                 <div
-                    className="dropdown-menu show position-absolute end-0 mt-2 glass shadow-lg border-0 p-0 overflow-hidden"
+                    className="dropdown-menu show position-absolute end-0 mt-2 shadow-lg border-0 p-0 overflow-hidden bg-body"
                     style={{
                         minWidth: 'min(90vw, 350px)',
                         right: 0,
@@ -151,13 +151,6 @@ export default function NavProfile() {
                                 <div className="p-3 mb-2 bg-primary bg-opacity-10 rounded-3 text-center">
                                     <div className="fw-bold text-primary mb-1">Administrator Active</div>
                                     <div className="small text-muted mb-2">Username: focusadmin</div>
-                                    <Link
-                                        to="/admin"
-                                        className="btn btn-sm btn-primary w-100 mb-2 rounded-pill shadow-sm"
-                                        onClick={() => setIsOpen(false)}
-                                    >
-                                        Open Admin Panel
-                                    </Link>
                                     <button
                                         className="btn btn-sm btn-outline-danger w-100 rounded-pill"
                                         onClick={() => {
@@ -177,13 +170,13 @@ export default function NavProfile() {
                                 <div className="p-2 border-top border-light mt-2 d-flex flex-column gap-2">
                                     <Link
                                         to="/dashboard"
-                                        className="btn btn-sm btn-primary w-100"
+                                        className="btn btn-sm btn-outline-primary w-100 rounded-pill"
                                         onClick={() => setIsOpen(false)}
                                     >
                                         View Dashboard
                                     </Link>
                                     <button
-                                        className="btn btn-sm btn-outline-danger w-100"
+                                        className="btn btn-sm btn-outline-danger w-100 rounded-pill"
                                         onClick={handleLogout}
                                     >
                                         Logout
