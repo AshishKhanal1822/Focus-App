@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import SupabaseAdapter from '../agents/adapters/SupabaseAdapter.js';
+import adminStore from '../utils/adminStore.js';
 import ProfilePhoto from './ProfilePhoto.jsx';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     User, Mail, ShieldCheck,
-    Settings, ChevronRight,
+    Settings, ChevronRight, Shield
 } from 'lucide-react';
 
 export default function Profile({ initialUser = null }) {
@@ -17,85 +18,39 @@ export default function Profile({ initialUser = null }) {
     const [isEditing, setIsEditing] = useState(false);
     const [newName, setNewName] = useState('');
     const [isUpdating, setIsUpdating] = useState(false);
+    const [isAdmin, setIsAdmin] = useState(adminStore.isAdminLoggedIn());
     const lastRefreshRef = useRef(0);
     const skipNextRefreshRef = useRef(false);
     const previousUserRef = useRef(null);
     const [isOnline, setIsOnline] = useState(navigator.onLine);
 
     useEffect(() => {
-        const handleOnline = () => setIsOnline(true);
-        const handleOffline = () => setIsOnline(false);
-        window.addEventListener('online', handleOnline);
-        window.addEventListener('offline', handleOffline);
-        return () => {
-            window.removeEventListener('online', handleOnline);
-            window.removeEventListener('offline', handleOffline);
-        };
-    }, []);
-
-    const handleUpdateName = async (e) => {
-        e.preventDefault();
-        const trimmedName = newName.trim();
-        if (!trimmedName) return;
-
-        setIsUpdating(true);
-        skipNextRefreshRef.current = true; // Prevents the next USER_UPDATED from triggering refreshUser
-        const { data, error } = await SupabaseAdapter.updateProfile({ full_name: trimmedName });
-
-        if (error) {
-            console.error("Name update failed", error);
-            skipNextRefreshRef.current = false; // Reset if error
-            alert("Unable to save name. Please check your connection.");
-            setIsUpdating(false);
-        } else {
-            // Success: update local state instantly from returned optimistic data
-            setIsEditing(false);
-            setIsUpdating(false);
-            setMessage('Profile name updated!');
-            setTimeout(() => setMessage(''), 3000);
-            if (data?.user) {
-                setUser(data.user);
-                previousUserRef.current = data.user;
-            }
-        }
-    };
-
-    const refreshingRef = useRef(false);
-
-    const refreshUser = async (force = false) => {
-        if (refreshingRef.current) return;
-
-        const now = Date.now();
-        // Throttle refreshes to once every 10 seconds unless forced
-        if (!force && (now - lastRefreshRef.current < 10000)) return;
-
-        refreshingRef.current = true;
-        lastRefreshRef.current = now;
-        try {
-            const u = await SupabaseAdapter.getUser();
-            if (u) {
-                setUser(u);
-            }
-            refreshingRef.current = false;
-        } catch (err) {
-            console.warn("Background refresh failed:", err);
-            refreshingRef.current = false;
-        }
-    };
-
-    // Authoritative user sync
-    useEffect(() => {
-        const unsubscribe = SupabaseAdapter.subscribe((u) => {
-            if (u) {
-                setUser(u);
-            }
-        });
-        return unsubscribe;
+        const unsub = () => setIsAdmin(adminStore.isAdminLoggedIn());
+        window.addEventListener('storage', unsub);
+        return () => window.removeEventListener('storage', unsub);
     }, []);
 
     const handleAuth = async (e) => {
         e.preventDefault();
         setMessage('');
+
+        const normalizedEmail = (email || '').trim().toLowerCase();
+
+        // Check if admin login credentials match
+        if (normalizedEmail === 'focusadmin' || normalizedEmail === 'focusadmin@focus.app') {
+            if (password === 'adminfocus') {
+                adminStore.loginAdmin(normalizedEmail, password);
+                setIsAdmin(true);
+                setMessage('Success! Logged in as Admin.');
+                setTimeout(() => {
+                    window.location.href = '/admin';
+                }, 400);
+                return;
+            } else {
+                setMessage('Invalid password for focusadmin');
+                return;
+            }
+        }
 
         if (!navigator.onLine) {
             setMessage('Internet connection required.');
@@ -115,7 +70,6 @@ export default function Profile({ initialUser = null }) {
                 setMessage('Check your email for confirmation link!');
             } else {
                 setMessage('Success!');
-                // Welcome animation is handled globally in App.jsx on auth state change
             }
         }
         setLoading(false);

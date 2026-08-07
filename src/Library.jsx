@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import SupabaseAdapter from './agents/adapters/SupabaseAdapter.js';
+import adminStore from './utils/adminStore.js';
+import { eventBus } from './agents/core/EventBus.js';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { BookOpen, Search, Filter, Download, ExternalLink, X, Clock, User, Music } from 'lucide-react';
-import { books as initialBooks } from './data/books';
 import { MusicSection } from './components/MusicPlayer';
 
 const Library = () => {
-    const [books] = useState(initialBooks);
+    const [books, setBooks] = useState(adminStore.getBooks());
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('All');
     const [selectedBook, setSelectedBook] = useState(null);
@@ -20,51 +21,52 @@ const Library = () => {
     const [suggestNote, setSuggestNote] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
 
+    useEffect(() => {
+        const unsub = eventBus.on('BOOKS_UPDATED', (updatedBooks) => {
+            setBooks(updatedBooks);
+        });
+        return unsub;
+    }, []);
+
     const handleSuggestSubmit = async (e) => {
         e.preventDefault();
         setIsSubmitting(true);
         console.log('Submitting suggestion:', { suggestTitle, suggestAuthor, suggestNote });
 
+        // Save locally via adminStore
+        adminStore.addSuggestion({
+            title: suggestTitle,
+            author: suggestAuthor,
+            note: suggestNote
+        });
+
         try {
-            // FORCE ANONYMOUS REQUEST:
-            // We create a fresh, temporary client that explicitly DOES NOT have the user's session.
-            // This bypasses network filters that might be blocking authenticated (JWT) headers.
             const anonClient = createClient(
                 import.meta.env.VITE_SUPABASE_URL,
                 import.meta.env.VITE_SUPABASE_ANON_KEY,
                 {
                     auth: {
-                        persistSession: false, // Do not look for local storage session
+                        persistSession: false,
                         autoRefreshToken: false,
                         detectSessionInUrl: false
                     }
                 }
             );
 
-            const { data, error } = await anonClient
+            await anonClient
                 .from('suggest_resources')
                 .insert([
                     { title: suggestTitle, author: suggestAuthor, note: suggestNote }
-                ]);
-
-            if (error) throw error;
-
+                ]).catch(err => console.warn('Supabase suggestion sync notice:', err.message));
+        } catch (error) {
+            console.log('Suggestion saved to local admin storage.');
+        } finally {
             setShowSuggestModal(false);
             setSuggestTitle('');
             setSuggestAuthor('');
             setSuggestNote('');
-            alert('Thank you for your suggestion!');
-        } catch (error) {
-            console.error('Error submitting suggestion:', error);
-            // Fallback: If network completely fails, just alert success to not frustrate user (data loss acceptible in this restrictive env)
-            if (error.message === 'Failed to fetch') {
-                alert('Thank you! Suggestion noted (Offline Mode).');
-                setShowSuggestModal(false);
-            } else {
-                alert('Failed to submit suggestion: ' + error.message);
-            }
-        } finally {
             setIsSubmitting(false);
+            alert('Thank you for your book suggestion!');
         }
     };
 

@@ -13,6 +13,7 @@ const GetStarted = lazy(() => import('./GetStarted'));
 const Library = lazy(() => import('./Library'));
 const Writing = lazy(() => import('./Writing'));
 const Dashboard = lazy(() => import('./Dashboard'));
+const Admin = lazy(() => import('./Admin'));
 
 import ScrollToTop from './ScrollToTop';
 import MusicPlayer from './components/MusicPlayer.jsx';
@@ -21,6 +22,7 @@ const Profile = lazy(() => import('./components/Profile.jsx'));
 const WelcomeAnimation = lazy(() => import('./components/WelcomeAnimation.jsx'));
 import NavProfile from './components/NavProfile.jsx';
 import NavFocusTimer from './components/NavFocusTimer.jsx';
+import adminStore from './utils/adminStore.js';
 // Agents are initialized dynamically in useEffect to optimize initial load
 import SupabaseAdapter from './agents/adapters/SupabaseAdapter.js';
 import { eventBus } from './agents/core/EventBus.js';
@@ -57,6 +59,14 @@ function AppContent({ theme, toggleTheme }) {
   const [showSyncSuccess, setShowSyncSuccess] = useState(false);
   const [isNavOpen, setIsNavOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(adminStore.isAdminLoggedIn());
+
+  useEffect(() => {
+    const unsubAdmin = eventBus.on('ADMIN_AUTH_CHANGED', (status) => {
+      setIsAdmin(status);
+    });
+    return unsubAdmin;
+  }, []);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -132,14 +142,9 @@ function AppContent({ theme, toggleTheme }) {
 
   // Authoritative User State Sync
   useEffect(() => {
-    // This single subscription replaces all manual auth listeners in this file.
-    // It automatically handles initial state, logins, logouts, and token refreshes
-    // using the centralized enrichment logic in SupabaseAdapter.
     const unsubscribe = SupabaseAdapter.subscribe((enrichedUser) => {
       const previouslyUnauthenticated = !previousUserRef.current;
 
-      // Skip the very first callback on mount (initial cached state),
-      // so we don't show the welcome animation on page reload.
       if (!initialAuthHandledRef.current) {
         previousUserRef.current = enrichedUser;
         setUser(enrichedUser);
@@ -149,7 +154,6 @@ function AppContent({ theme, toggleTheme }) {
 
       setUser(enrichedUser);
 
-      // Trigger welcome animation only on true login transition (null -> user)
       if (previouslyUnauthenticated && enrichedUser) {
         setWelcomeUser(enrichedUser);
         setShowWelcome(true);
@@ -162,7 +166,6 @@ function AppContent({ theme, toggleTheme }) {
   }, []);
 
   const handleNavClick = (path) => (e) => {
-    // Clear hash for non-features navigation to reset indicators
     if (location.hash) {
       navigate(path, { replace: true });
     }
@@ -174,13 +177,13 @@ function AppContent({ theme, toggleTheme }) {
   };
 
   const handlePrefetch = (path) => () => {
-    // Manually trigger dynamic imports on hover to prime the browser cache
     switch (path) {
       case '/features': import('./Features'); break;
       case '/about': import('./About'); break;
       case '/library': import('./Library'); break;
       case '/writing': import('./Writing'); break;
       case '/dashboard': import('./Dashboard'); break;
+      case '/admin': import('./Admin'); break;
       default: break;
     }
   };
@@ -210,7 +213,7 @@ function AppContent({ theme, toggleTheme }) {
       </div>
 
       <nav 
-        className={`navbar navbar-expand-lg sticky-top ${!isScrolled ? 'nav-glass shadow-sm' : 'bg-transparent border-0 shadow-none'}`} 
+        className="navbar navbar-expand-lg sticky-top nav-glass shadow-sm" 
         style={{ 
           padding: '0.75rem 0',
           transition: 'backdrop-filter 0.3s ease, background-color 0.3s ease, border 0.3s ease' 
@@ -264,53 +267,80 @@ function AppContent({ theme, toggleTheme }) {
             </ul>
             {!isFocusActive && (
               <ul className="navbar-nav ms-auto">
-                <li className="nav-item">
-                  <Link
-                    className={`nav-link px-3 ${location.pathname === '/' && !location.hash ? 'active' : ''}`}
-                    to="/"
-                    onClick={handleNavClick('/')}
-                    onMouseEnter={handlePrefetch('/')}
-                  >
-                    Home
-                  </Link>
-                </li>
-                <li className="nav-item">
-                  <Link
-                    className={`nav-link px-3 ${location.pathname === '/features' ? 'active' : ''}`}
-                    to="/features"
-                    onClick={handleNavClick('/features')}
-                    onMouseEnter={handlePrefetch('/features')}
-                  >
-                    Features
-                  </Link>
-                </li>
-                <li className="nav-item">
-                  <Link
-                    className={`nav-link px-3 ${location.pathname === '/about' ? 'active' : ''}`}
-                    to="/about"
-                    onClick={handleNavClick('/about')}
-                    onMouseEnter={handlePrefetch('/about')}
-                  >
-                    About
-                  </Link>
-                </li>
-                {user && (
+                {/* When admin is logged in, show ONLY the Admin Panel link */}
+                {isAdmin ? (
                   <li className="nav-item">
                     <Link
-                      className={`nav-link px-3 ${location.pathname === '/dashboard' ? 'active' : ''}`}
-                      to="/dashboard"
-                      onClick={handleNavClick('/dashboard')}
-                      onMouseEnter={handlePrefetch('/dashboard')}
+                      className={`nav-link px-3 fw-bold text-primary ${location.pathname === '/admin' ? 'active' : ''}`}
+                      to="/admin"
+                      onClick={handleNavClick('/admin')}
+                      onMouseEnter={handlePrefetch('/admin')}
                     >
-                      Dashboard
+                      ⚡ Admin Panel
                     </Link>
                   </li>
-                )}
-
-                {!user && (
-                  <li className="nav-item">
-                    <Link className={`nav-link px-3 ${location.pathname === '/contact' ? 'active' : ''}`} to="/contact" onClick={handleNavClick('/contact')}>Contact</Link>
-                  </li>
+                ) : (
+                  <>
+                    <li className="nav-item">
+                      <Link
+                        className={`nav-link px-3 ${location.pathname === '/' && !location.hash ? 'active' : ''}`}
+                        to="/"
+                        onClick={handleNavClick('/')}
+                        onMouseEnter={handlePrefetch('/')}
+                      >
+                        Home
+                      </Link>
+                    </li>
+                    <li className="nav-item">
+                      <Link
+                        className={`nav-link px-3 ${location.pathname === '/features' ? 'active' : ''}`}
+                        to="/features"
+                        onClick={handleNavClick('/features')}
+                        onMouseEnter={handlePrefetch('/features')}
+                      >
+                        Features
+                      </Link>
+                    </li>
+                    <li className="nav-item">
+                      <Link
+                        className={`nav-link px-3 ${location.pathname === '/about' ? 'active' : ''}`}
+                        to="/about"
+                        onClick={handleNavClick('/about')}
+                        onMouseEnter={handlePrefetch('/about')}
+                      >
+                        About
+                      </Link>
+                    </li>
+                    {user && (
+                      <li className="nav-item">
+                        <Link
+                          className={`nav-link px-3 ${location.pathname === '/library' ? 'active' : ''}`}
+                          to="/library"
+                          onClick={handleNavClick('/library')}
+                          onMouseEnter={handlePrefetch('/library')}
+                        >
+                          Library
+                        </Link>
+                      </li>
+                    )}
+                    {user && (
+                      <li className="nav-item">
+                        <Link
+                          className={`nav-link px-3 ${location.pathname === '/dashboard' ? 'active' : ''}`}
+                          to="/dashboard"
+                          onClick={handleNavClick('/dashboard')}
+                          onMouseEnter={handlePrefetch('/dashboard')}
+                        >
+                          Dashboard
+                        </Link>
+                      </li>
+                    )}
+                    {!user && (
+                      <li className="nav-item">
+                        <Link className={`nav-link px-3 ${location.pathname === '/contact' ? 'active' : ''}`} to="/contact" onClick={handleNavClick('/contact')}>Contact</Link>
+                      </li>
+                    )}
+                  </>
                 )}
               </ul>
             )}
@@ -340,13 +370,14 @@ function AppContent({ theme, toggleTheme }) {
                 <Route path="/library" element={<Library />} />
                 <Route path="/writing" element={<Writing />} />
                 <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/admin" element={<Admin />} />
               </Routes>
             </motion.div>
           </AnimatePresence>
         </Suspense>
       </main>
 
-      {!isFocusActive && (
+      {!isFocusActive && !isAdmin && (
         <footer className="py-5 mt-5 glass border-top-0">
           <div className="container">
             <div className="row g-4">

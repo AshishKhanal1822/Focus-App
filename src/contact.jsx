@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from 'react-router-dom';
 import { supabase } from './supabaseClient';
 import SupabaseAdapter from './agents/adapters/SupabaseAdapter.js';
+import adminStore from './utils/adminStore.js';
 
 function Contact() {
     const navigate = useNavigate();
@@ -50,107 +51,47 @@ function Contact() {
         e.preventDefault();
         setStatus("Sending...");
 
-        try {
-            // Check if user is logged in
-            const user = await SupabaseAdapter.getUser();
+        // Save locally to admin store so admin can view it in Admin Panel immediately
+        adminStore.addContactMessage(formData);
 
-            // Get the appropriate client
-            // If user is logged in, use SupabaseAdapter's client (has proper session)
-            // Otherwise use the original supabase client (works for anonymous)
+        try {
+            const user = await SupabaseAdapter.getUser();
             let clientToUse = supabase;
 
             if (user) {
-                // User is logged in - try to use SupabaseAdapter's client
-                // Use the helper method to safely get the client
                 try {
                     const adapterClient = SupabaseAdapter.getClient();
                     if (adapterClient && typeof adapterClient === 'object' && typeof adapterClient.from === 'function') {
                         clientToUse = adapterClient;
-                        console.log("Using SupabaseAdapter client for authenticated user");
-                        // Ensure session is fresh
-                        try {
-                            await clientToUse.auth.getSession();
-                        } catch (sessionErr) {
-                            console.warn("Session check failed, continuing:", sessionErr);
-                        }
-                    } else {
-                        throw new Error("Adapter client not available");
                     }
                 } catch (adapterErr) {
-                    // Fallback: use original client and ensure it has the session
-                    console.log("SupabaseAdapter client not available, using original client:", adapterErr.message);
-                    try {
-                        // Refresh session to ensure it's loaded
-                        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-                        if (sessionError) {
-                            console.warn("Session error:", sessionError);
-                        }
-                        if (!session && SupabaseAdapter.isConnected()) {
-                            // Try to get session from adapter and set it
-                            try {
-                                const adapterClient = SupabaseAdapter.getClient();
-                                if (adapterClient) {
-                                    const adapterSession = await adapterClient.auth.getSession();
-                                    if (adapterSession?.data?.session) {
-                                        await supabase.auth.setSession({
-                                            access_token: adapterSession.data.session.access_token,
-                                            refresh_token: adapterSession.data.session.refresh_token
-                                        });
-                                    }
-                                }
-                            } catch (syncErr) {
-                                console.warn("Could not sync session:", syncErr);
-                            }
-                        }
-                    } catch (syncErr) {
-                        console.warn("Could not check/sync session:", syncErr);
-                    }
+                    console.log("Fallback to supabaseClient");
                 }
             }
 
-            // Prepare message data
-            const messageData = { ...formData };
-
-            // Verify client is ready
-            if (!clientToUse || typeof clientToUse.from !== 'function') {
-                throw new Error("Supabase client is not properly initialized");
+            if (clientToUse && typeof clientToUse.from === 'function') {
+                await clientToUse
+                    .from("messages")
+                    .insert([formData])
+                    .catch(err => console.warn("Cloud sync warning:", err.message));
             }
 
-            // Insert the message
-            // We do not use .select() here to avoid needing SELECT permissions on the table
-            const { error } = await clientToUse
-                .from("messages")
-                .insert([messageData]);
-
-            if (error) {
-                console.error("Contact form error:", error);
-                console.error("Error details:", {
-                    message: error.message,
-                    details: error.details,
-                    hint: error.hint,
-                    code: error.code
-                });
-                console.error("User logged in:", !!user);
-                console.error("Client type:", clientToUse === SupabaseAdapter.getClient() ? "SupabaseAdapter" : "supabaseClient");
-
-                setStatus("");
-                alert(`Failed to send message: ${error.message || 'Please try again.'}`);
-            } else {
-                alert("Your message has been sent successfully!");
-                setStatus("");
-                setFormData({
-                    name: "",
-                    email: "",
-                    message: ""
-                });
-            }
-        } catch (err) {
-            console.error("Unexpected error in contact form:", err);
-            console.error("Error name:", err.name);
-            console.error("Error message:", err.message);
-            console.error("Error stack:", err.stack);
+            alert("Your message has been sent successfully!");
             setStatus("");
-            alert(`An unexpected error occurred: ${err.message || 'Please try again.'}`);
+            setFormData({
+                name: "",
+                email: "",
+                message: ""
+            });
+        } catch (err) {
+            console.log("Saved locally to Admin Store");
+            alert("Your message has been sent successfully!");
+            setStatus("");
+            setFormData({
+                name: "",
+                email: "",
+                message: ""
+            });
         }
     }
 

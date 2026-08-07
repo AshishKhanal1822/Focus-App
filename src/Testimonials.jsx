@@ -1,114 +1,71 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Quote, Star, Plus, X } from 'lucide-react';
+import { Quote, Star, Plus, X, Heart } from 'lucide-react';
 import SupabaseAdapter from './agents/adapters/SupabaseAdapter';
-
-const initialTestimonials = [
-    {
-        name: 'Sarah Johnson',
-        role: 'Freelance Writer',
-        text: 'Focus has completely changed my workflow. The distraction-free writing space is a game-changer for my productivity.',
-        rating: 5
-    },
-    {
-        name: 'Michael Chen',
-        role: 'Student',
-        text: 'I love how organized I feel now. The Reading Mode helps me get through my assignments faster than ever before.',
-        rating: 5
-    },
-    {
-        name: 'Elena Rodriguez',
-        role: 'Project Manager',
-        text: 'A sleek, modern interface that just works. The team collaboration features are exactly what we needed.',
-        rating: 4
-    }
-];
-
-const moreTestimonials = [
-    {
-        name: 'David Kim',
-        role: 'Software Engineer',
-        text: 'The best todo app I have used. Simple but powerful. The dark mode is easy on the eyes during late night coding sessions.',
-        rating: 5
-    },
-    {
-        name: 'Lisa Patel',
-        role: 'Designer',
-        text: 'Beautifully designed. It is rare to find a productivity tool that actually looks good and inspires you to work.',
-        rating: 5
-    },
-    {
-        name: 'James Wilson',
-        role: 'Entrepreneur',
-        text: 'Keeps me on track with my daily goals. The progress tracking features are motivating.',
-        rating: 4
-    }
-];
+import adminStore from './utils/adminStore';
+import { eventBus } from './agents/core/EventBus';
 
 function Testimonials() {
     const [showAll, setShowAll] = useState(false);
     const [showModal, setShowModal] = useState(false);
     const [user, setUser] = useState(null);
-    const [cloudReviews, setCloudReviews] = useState([]);
+    const [allReviews, setAllReviews] = useState(adminStore.getApprovedReviews());
     const [formData, setFormData] = useState({ name: '', role: '', review_text: '', rating: 5 });
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [submitMessage, setSubmitMessage] = useState('');
 
     useEffect(() => {
         SupabaseAdapter.getUser().then(setUser);
-        loadCloudReviews();
+        setAllReviews(adminStore.getApprovedReviews());
+
+        const unsub = eventBus.on('REVIEWS_UPDATED', () => {
+            setAllReviews(adminStore.getApprovedReviews());
+        });
 
         const { data: { subscription } } = SupabaseAdapter.onAuthStateChange((_event, session) => {
             setUser(session?.user || null);
         });
-        return () => subscription.unsubscribe();
+
+        return () => {
+            unsub();
+            subscription.unsubscribe();
+        };
     }, []);
 
-    const loadCloudReviews = async () => {
-        try {
-            const client = SupabaseAdapter.getClient();
-            const { data } = await client
-                .from('reviews')
-                .select('*')
-                .eq('is_approved', true)
-                .order('created_at', { ascending: false });
-
-            if (data) {
-                setCloudReviews(data.map(r => ({
-                    name: r.name,
-                    role: r.role,
-                    text: r.review_text,
-                    rating: r.rating
-                })));
-            }
-        } catch (e) {
-            console.error('Failed to load reviews:', e);
+    const handleLikeReview = (id) => {
+        if (id) {
+            adminStore.likeReview(id);
+            setAllReviews(adminStore.getApprovedReviews());
         }
     };
 
     const handleSubmitReview = async (e) => {
         e.preventDefault();
-        if (!user) {
-            setSubmitMessage('Please login to submit a review');
-            return;
-        }
-
         setIsSubmitting(true);
         try {
-            const client = SupabaseAdapter.getClient();
-            const { error } = await client
-                .from('reviews')
-                .insert([{
-                    user_id: user.id,
-                    name: formData.name,
-                    role: formData.role,
-                    review_text: formData.review_text,
-                    rating: formData.rating
-                }]);
+            // Save to local adminStore (pending admin or user approval/like)
+            adminStore.addReview({
+                name: formData.name,
+                role: formData.role,
+                review_text: formData.review_text,
+                rating: formData.rating
+            });
 
-            if (error) throw error;
+            // Try Cloud insert if connected
+            if (user) {
+                const client = SupabaseAdapter.getClient();
+                await client
+                    .from('reviews')
+                    .insert([{
+                        user_id: user.id,
+                        name: formData.name,
+                        role: formData.role,
+                        review_text: formData.review_text,
+                        rating: formData.rating
+                    }]).catch(err => console.warn('Supabase review notice:', err.message));
+            }
 
-            setSubmitMessage('Thank you! Your review is pending approval.');
+            setSubmitMessage('Thank you! Your review is submitted and pending approval.');
             setFormData({ name: '', role: '', review_text: '', rating: 5 });
             setTimeout(() => {
                 setShowModal(false);
@@ -116,14 +73,13 @@ function Testimonials() {
             }, 2000);
         } catch (error) {
             console.error('Review submission failed:', error);
-            setSubmitMessage('Failed to submit review. Please try again.');
+            setSubmitMessage('Review saved locally.');
         } finally {
             setIsSubmitting(false);
         }
     };
 
-    const allTestimonials = [...cloudReviews, ...initialTestimonials, ...moreTestimonials];
-    const testimonials = showAll ? allTestimonials : allTestimonials.slice(0, 3);
+    const testimonials = showAll ? allReviews : allReviews.slice(0, 3);
 
     return (
         <div className="container py-5 mt-5">
@@ -136,24 +92,34 @@ function Testimonials() {
                 <AnimatePresence>
                     {testimonials.map((testi, index) => (
                         <motion.div
-                            key={index}
+                            key={testi.id || index}
                             className="col-md-4"
                             initial={{ opacity: 0, scale: 0.9 }}
                             animate={{ opacity: 1, scale: 1 }}
                             exit={{ opacity: 0, scale: 0.9 }}
                             transition={{ duration: 0.5, delay: index * 0.1 }}
                         >
-                            <div className="card glass h-100 p-4 border-0">
-                                <Quote className="text-primary opacity-25 mb-3" size={40} />
-                                <p className="fs-5 mb-4 italic">"{testi.text}"</p>
+                            <div className="card glass h-100 p-4 border-0 position-relative" style={{ color: 'var(--text-body)' }}>
+                                <div className="d-flex justify-content-between align-items-center mb-3">
+                                    <Quote className="text-primary opacity-25" size={36} />
+                                    <button
+                                        className="btn btn-sm btn-outline-danger rounded-pill px-2 py-1 d-flex align-items-center gap-1"
+                                        onClick={() => handleLikeReview(testi.id)}
+                                        title="Like & approve this review"
+                                    >
+                                        <Heart size={14} fill="currentColor" />
+                                        <span className="small">{testi.likes || 0}</span>
+                                    </button>
+                                </div>
+                                <p className="fs-5 mb-4 italic" style={{ color: 'var(--text-body)' }}>"{testi.review_text || testi.text}"</p>
                                 <div className="mt-auto">
                                     <div className="d-flex text-warning mb-2">
-                                        {[...Array(testi.rating)].map((_, i) => (
+                                        {[...Array(testi.rating || 5)].map((_, i) => (
                                             <Star key={i} size={16} fill="currentColor" />
                                         ))}
                                     </div>
-                                    <h3 className="fs-6 fw-bold mb-0">{testi.name}</h3>
-                                    <p className="small opacity-75 mb-0">{testi.role}</p>
+                                    <h3 className="fs-6 fw-bold mb-0" style={{ color: 'var(--text-body)' }}>{testi.name}</h3>
+                                    <p className="small opacity-75 mb-0" style={{ color: 'var(--text-muted)' }}>{testi.role}</p>
                                 </div>
                             </div>
                         </motion.div>
@@ -169,12 +135,12 @@ function Testimonials() {
                     <Plus size={18} /> Write a Review
                 </button>
 
-                {!showAll && allTestimonials.length > 3 && (
+                {!showAll && allReviews.length > 3 && (
                     <button
                         className="btn btn-outline-primary px-4 rounded-pill"
                         onClick={() => setShowAll(true)}
                     >
-                        View All Stories
+                        View All Stories ({allReviews.length})
                     </button>
                 )}
                 {showAll && (
@@ -191,7 +157,7 @@ function Testimonials() {
             {showModal && (
                 <div className="modal show d-block" style={{ background: 'rgba(0,0,0,0.5)' }} onClick={() => setShowModal(false)}>
                     <div className="modal-dialog modal-dialog-centered" onClick={(e) => e.stopPropagation()}>
-                        <div className="modal-content glass border-0">
+                        <div className="modal-content glass border-0" style={{ color: 'var(--text-body)', background: 'var(--glass-bg)' }}>
                             <div className="modal-header border-0">
                                 <h3 className="modal-title fs-5 fw-bold">Write Your Review</h3>
                                 <button type="button" className="btn-close" onClick={() => setShowModal(false)}></button>

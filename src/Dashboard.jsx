@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import {
     Activity, Clock, BookOpen, PenTool, CheckSquare, 
-    Calendar, RefreshCw, BarChart2, Award, ChevronLeft
+    Calendar, BarChart2, Award, ChevronLeft
 } from 'lucide-react';
 import SupabaseAdapter from './agents/adapters/SupabaseAdapter.js';
 import { eventBus } from './agents/core/EventBus.js';
@@ -309,14 +309,6 @@ export default function Dashboard() {
                 </div>
                 
                 <div className="d-flex gap-2">
-                    <button 
-                        className="btn btn-light rounded-circle p-2 shadow-sm border"
-                        onClick={fetchStats}
-                        title="Refresh Stats"
-                        aria-label="Refresh Statistics"
-                    >
-                        <RefreshCw size={18} className={isLoading ? 'animate-spin' : ''} />
-                    </button>
                     <div className="btn-group bg-white rounded-3 shadow-sm p-1 border">
                         <button 
                             className={`btn btn-sm rounded-2 border-0 ${viewMode === 'daily' ? 'btn-primary' : 'bg-transparent text-body'}`}
