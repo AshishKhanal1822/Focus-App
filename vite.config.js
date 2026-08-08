@@ -118,19 +118,25 @@ export default defineConfig({
       output: {
         manualChunks(id) {
           if (id.includes('node_modules')) {
-            if (id.includes('react') || id.includes('react-dom') || id.includes('react-router-dom')) {
+            if (
+              id.includes('/node_modules/react/') ||
+              id.includes('/node_modules/react-dom/') ||
+              id.includes('/node_modules/react-router/') ||
+              id.includes('/node_modules/react-router-dom/') ||
+              id.includes('/node_modules/scheduler/') ||
+              id.includes('/node_modules/use-sync-external-store/')
+            ) {
               return 'vendor-react';
             }
-            if (id.includes('@supabase')) {
+            if (id.includes('/node_modules/@supabase/')) {
               return 'vendor-supabase';
             }
-            if (id.includes('framer-motion')) {
+            if (id.includes('/node_modules/framer-motion/')) {
               return 'vendor-framer';
             }
-            if (id.includes('lucide-react')) {
+            if (id.includes('/node_modules/lucide-react/')) {
               return 'vendor-icons';
             }
-            return 'vendor'; // Split other vendors into a separate chunk
           }
         }
       }
