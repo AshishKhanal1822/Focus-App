@@ -432,7 +432,7 @@ function AppContent({ theme, toggleTheme }) {
         </footer>
       )}
       <ScrollToTop />
-      <MusicPlayer />
+      {!isAdmin && <MusicPlayer />}
       <FocusToast />
     </>
   );
