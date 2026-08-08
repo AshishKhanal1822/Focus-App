@@ -1,5 +1,8 @@
 {
   "appId": "com.ashishkhanal.focus",
   "appName": "Focus",
-  "webDir": "dist"
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  }
 }
