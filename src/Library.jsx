@@ -92,9 +92,7 @@ const Library = () => {
             if (document.visibilityState === 'visible') {
                 secondsElapsed++;
                 if (secondsElapsed >= 10) {
-                    import('./agents/core/EventBus.js').then(m => {
-                        m.eventBus.emit('STATS_INCREMENT', { reading_time_seconds: 10 });
-                    });
+                    eventBus.emit('STATS_INCREMENT', { reading_time_seconds: 10 });
                     secondsElapsed = 0;
                 }
             }
@@ -103,9 +101,7 @@ const Library = () => {
         return () => {
             clearInterval(interval);
             if (secondsElapsed > 0) {
-                import('./agents/core/EventBus.js').then(m => {
-                    m.eventBus.emit('STATS_INCREMENT', { reading_time_seconds: secondsElapsed });
-                });
+                eventBus.emit('STATS_INCREMENT', { reading_time_seconds: secondsElapsed });
             }
         };
     }, [selectedBook]);

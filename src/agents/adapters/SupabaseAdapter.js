@@ -206,15 +206,13 @@ class SupabaseAdapter {
 
         this._userFetchPromise = (async () => {
             try {
-                // 1. Get fresh user from Auth with timeout
-                // We use a short timeout (2s) because for critical operations we'd rather be optimistic than hang
+                // 1. Get fresh user from Auth with short timeout (1.5s max)
                 const { data: { user }, error } = await Promise.race([
                     this.supabase.auth.getUser(),
-                    new Promise((_, reject) => setTimeout(() => reject(new Error('Auth timeout')), 3000))
+                    new Promise((_, reject) => setTimeout(() => reject(new Error('Auth timeout')), 1500))
                 ]).catch(e => ({ data: { user: null }, error: e }));
 
                 if (error || !user) {
-                    // Check if it's a network/unexpected error vs a real auth error
                     const isAuthError = error?.message === 'Auth session missing!' || error?.message?.includes('Invalid Refresh Token');
 
                     if (!isAuthError && this.cachedUser) {
@@ -230,36 +228,19 @@ class SupabaseAdapter {
                     return null;
                 }
 
-                // 2. Fetch profile from DB with retries
+                // 2. Fetch profile from DB with single fast attempt (1.5s timeout)
                 let profile = null;
-                let retries = 2;
+                try {
+                    const { data, error: profileError } = await Promise.race([
+                        this.supabase.from('profiles').select('*').eq('id', user.id).maybeSingle(),
+                        new Promise((_, reject) => setTimeout(() => reject('timeout'), 1500))
+                    ]);
 
-                while (retries > 0 && !profile) {
-                    try {
-                        const { data, error: profileError } = await Promise.race([
-                            this.supabase.from('profiles').select('*').eq('id', user.id).maybeSingle(),
-                            new Promise((_, reject) => setTimeout(() => reject('timeout'), 3000))
-                        ]);
-
-                        if (profileError) {
-                            console.warn(`Profile fetch attempt failed (${retries} left):`, {
-                                code: profileError.code,
-                                message: profileError.message
-                            });
-                        } else if (data) {
-                            console.log("Profile data found in DB:", data);
-                            profile = data;
-                            break;
-                        } else {
-                            console.log(`Profile fetch attempt [${retries}] returned no data for user ${user.id}`);
-                        }
-                    } catch (e) {
-                        console.warn(`Profile enrichment timeout (${retries} left)`);
+                    if (!profileError && data) {
+                        profile = data;
                     }
-                    if (!profile) {
-                        retries--;
-                        if (retries > 0) await new Promise(r => setTimeout(r, 500));
-                    }
+                } catch (e) {
+                    console.warn("Profile enrichment timeout/error, using auth metadata fallback");
                 }
 
                 if (!profile) {

@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import SupabaseAdapter from './agents/adapters/SupabaseAdapter.js';
 import SyncAgent from './agents/core/SyncAgent.js';
+import { eventBus } from './agents/core/EventBus.js';
 
 const prompts = [
     "What is one thing you would change about the world today?",
@@ -78,9 +79,7 @@ function Writing() {
 
         if (wordCount > prevWordCountRef.current) {
             const diff = wordCount - prevWordCountRef.current;
-            import('./agents/core/EventBus.js').then(m => {
-                m.eventBus.emit('STATS_INCREMENT', { words_written: diff });
-            });
+            eventBus.emit('STATS_INCREMENT', { words_written: diff });
         }
         prevWordCountRef.current = wordCount;
     }, [wordCount]);
@@ -93,9 +92,7 @@ function Writing() {
             if (isFocused && document.visibilityState === 'visible') {
                 secondsElapsed++;
                 if (secondsElapsed >= 10) {
-                    import('./agents/core/EventBus.js').then(m => {
-                        m.eventBus.emit('STATS_INCREMENT', { writing_time_seconds: 10 });
-                    });
+                    eventBus.emit('STATS_INCREMENT', { writing_time_seconds: 10 });
                     secondsElapsed = 0;
                 }
             }
@@ -104,9 +101,7 @@ function Writing() {
         return () => {
             clearInterval(interval);
             if (secondsElapsed > 0) {
-                import('./agents/core/EventBus.js').then(m => {
-                    m.eventBus.emit('STATS_INCREMENT', { writing_time_seconds: secondsElapsed });
-                });
+                eventBus.emit('STATS_INCREMENT', { writing_time_seconds: secondsElapsed });
             }
         };
     }, []);
@@ -320,9 +315,7 @@ function Writing() {
                 setSavedStatus('Saved Locally (Sync Pending)');
 
                 // Queue for background sync
-                import('./agents/core/SyncAgent.js').then(m => {
-                    m.default.addToQueue('writing', 'save', { content: currentText, title: currentTitle });
-                });
+                SyncAgent.addToQueue('writing', 'save', { content: currentText, title: currentTitle });
             } finally {
                 setIsSaving(false);
                 setTimeout(() => setSavedStatus(''), 2000);
@@ -339,7 +332,6 @@ function Writing() {
 
             // Also clear cloud?
             try {
-                const SupabaseAdapter = await import('./agents/adapters/SupabaseAdapter.js').then(m => m.default);
                 const user = await SupabaseAdapter.getUser();
                 if (user) {
                     const client = SupabaseAdapter.getClient();

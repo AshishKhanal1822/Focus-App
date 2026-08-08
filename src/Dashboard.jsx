@@ -1,5 +1,5 @@
 // src/Dashboard.jsx
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import {
     Activity, Clock, BookOpen, PenTool, CheckSquare, 
@@ -170,12 +170,27 @@ export default function Dashboard() {
     const last7Days = getLast7Days();
 
     // Map stats array to exactly last 7 days list (guarantees 7 items in chart)
-    const weeklyData = last7Days.map(dateStr => {
-        const existing = stats.find(s => s.date === dateStr);
-        const dayName = new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short' });
-        return existing ? { ...existing, dayName } : {
-            date: dateStr,
-            dayName,
+    const weeklyData = useMemo(() => {
+        return last7Days.map(dateStr => {
+            const existing = stats.find(s => s.date === dateStr);
+            const dayName = new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short' });
+            return existing ? { ...existing, dayName } : {
+                date: dateStr,
+                dayName,
+                screen_time_seconds: 0,
+                reading_time_seconds: 0,
+                focus_time_seconds: 0,
+                writing_time_seconds: 0,
+                tasks_completed: 0,
+                words_written: 0,
+                focus_sessions_completed: 0
+            };
+        });
+    }, [stats, last7Days]);
+
+    // Today's Stats — merge flushed DB/local data with the live in-session buffer
+    const todayBase = useMemo(() => {
+        return stats.find(s => s.date === todayStr) || {
             screen_time_seconds: 0,
             reading_time_seconds: 0,
             focus_time_seconds: 0,
@@ -184,38 +199,40 @@ export default function Dashboard() {
             words_written: 0,
             focus_sessions_completed: 0
         };
-    });
+    }, [stats, todayStr]);
 
-    // Today's Stats — merge flushed DB/local data with the live in-session buffer
-    const todayBase = stats.find(s => s.date === todayStr) || {
-        screen_time_seconds: 0,
-        reading_time_seconds: 0,
-        focus_time_seconds: 0,
-        writing_time_seconds: 0,
-        tasks_completed: 0,
-        words_written: 0,
-        focus_sessions_completed: 0
-    };
     // Add any buffered (not yet flushed) stats from the current session
     const liveBuf = (liveBuffer?.date === todayStr) ? liveBuffer.buffer : null;
-    const todayStats = liveBuf ? {
-        screen_time_seconds:      todayBase.screen_time_seconds      + (liveBuf.screen_time_seconds      || 0),
-        reading_time_seconds:     todayBase.reading_time_seconds     + (liveBuf.reading_time_seconds     || 0),
-        focus_time_seconds:       todayBase.focus_time_seconds       + (liveBuf.focus_time_seconds       || 0),
-        writing_time_seconds:     todayBase.writing_time_seconds     + (liveBuf.writing_time_seconds     || 0),
-        tasks_completed:          todayBase.tasks_completed          + (liveBuf.tasks_completed          || 0),
-        words_written:            todayBase.words_written            + (liveBuf.words_written            || 0),
-        focus_sessions_completed: todayBase.focus_sessions_completed + (liveBuf.focus_sessions_completed || 0),
-    } : todayBase;
+    const todayStats = useMemo(() => {
+        return liveBuf ? {
+            screen_time_seconds:      todayBase.screen_time_seconds      + (liveBuf.screen_time_seconds      || 0),
+            reading_time_seconds:     todayBase.reading_time_seconds     + (liveBuf.reading_time_seconds     || 0),
+            focus_time_seconds:       todayBase.focus_time_seconds       + (liveBuf.focus_time_seconds       || 0),
+            writing_time_seconds:     todayBase.writing_time_seconds     + (liveBuf.writing_time_seconds     || 0),
+            tasks_completed:          todayBase.tasks_completed          + (liveBuf.tasks_completed          || 0),
+            words_written:            todayBase.words_written            + (liveBuf.words_written            || 0),
+            focus_sessions_completed: todayBase.focus_sessions_completed + (liveBuf.focus_sessions_completed || 0),
+        } : todayBase;
+    }, [todayBase, liveBuf]);
 
     // Calculate Weekly Totals / Averages
-    const totalScreenTimeSec = weeklyData.reduce((acc, curr) => acc + curr.screen_time_seconds, 0);
-    const totalReadingTimeSec = weeklyData.reduce((acc, curr) => acc + curr.reading_time_seconds, 0);
-    const totalFocusTimeSec = weeklyData.reduce((acc, curr) => acc + curr.focus_time_seconds, 0);
-    const totalWritingTimeSec = weeklyData.reduce((acc, curr) => acc + curr.writing_time_seconds, 0);
-    const totalTasksCompleted = weeklyData.reduce((acc, curr) => acc + curr.tasks_completed, 0);
-    const totalWordsWritten = weeklyData.reduce((acc, curr) => acc + curr.words_written, 0);
-    const totalFocusSessions = weeklyData.reduce((acc, curr) => acc + curr.focus_sessions_completed, 0);
+    const {
+        totalScreenTimeSec,
+        totalReadingTimeSec,
+        totalFocusTimeSec,
+        totalWritingTimeSec,
+        totalTasksCompleted,
+        totalWordsWritten,
+        totalFocusSessions
+    } = useMemo(() => ({
+        totalScreenTimeSec: weeklyData.reduce((acc, curr) => acc + curr.screen_time_seconds, 0),
+        totalReadingTimeSec: weeklyData.reduce((acc, curr) => acc + curr.reading_time_seconds, 0),
+        totalFocusTimeSec: weeklyData.reduce((acc, curr) => acc + curr.focus_time_seconds, 0),
+        totalWritingTimeSec: weeklyData.reduce((acc, curr) => acc + curr.writing_time_seconds, 0),
+        totalTasksCompleted: weeklyData.reduce((acc, curr) => acc + curr.tasks_completed, 0),
+        totalWordsWritten: weeklyData.reduce((acc, curr) => acc + curr.words_written, 0),
+        totalFocusSessions: weeklyData.reduce((acc, curr) => acc + curr.focus_sessions_completed, 0)
+    }), [weeklyData]);
 
     const formatDuration = (seconds) => {
         const hrs = Math.floor(seconds / 3600);

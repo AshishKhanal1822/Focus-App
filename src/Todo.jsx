@@ -127,9 +127,7 @@ function Todo() {
                     } catch (err) {
                         console.warn("Cloud add failed, queueing for sync", err);
                         // Queue for background sync
-                        import('./agents/core/SyncAgent.js').then(m => {
-                            m.default.addToQueue('todo', 'add', { text: newTask.text, completed: false });
-                        });
+                        SyncAgent.addToQueue('todo', 'add', { text: newTask.text, completed: false });
                     }
                 })();
             } else {
@@ -161,9 +159,7 @@ function Todo() {
                     if (error) throw error;
                 } catch (err) {
                     console.warn("Cloud toggle failed, queueing for sync");
-                    import('./agents/core/SyncAgent.js').then(m => {
-                        m.default.addToQueue('todo', 'update', { id, updates: { completed: !currentStatus } });
-                    });
+                    SyncAgent.addToQueue('todo', 'update', { id, updates: { completed: !currentStatus } });
                 }
             })();
         }
@@ -184,9 +180,7 @@ function Todo() {
                     if (error) throw error;
                 } catch (err) {
                     console.warn("Cloud delete failed, queueing for sync");
-                    import('./agents/core/SyncAgent.js').then(m => {
-                        m.default.addToQueue('todo', 'delete', { id });
-                    });
+                    SyncAgent.addToQueue('todo', 'delete', { id });
                 }
             })();
         }

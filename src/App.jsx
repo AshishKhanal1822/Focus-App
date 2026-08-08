@@ -261,7 +261,7 @@ function AppContent({ theme, toggleTheme }) {
           </div>
 
           <div className={`collapse navbar-collapse ${isNavOpen ? 'show' : ''}`} id="navbarNav">
-            {!isAdmin && (
+            {!isAdmin && !['/about', '/contact', '/features', '/testimonials'].includes(location.pathname) && (
               <ul className="navbar-nav mx-auto">
                 <li className="nav-item">
                   <NavFocusTimer />
@@ -352,7 +352,7 @@ function AppContent({ theme, toggleTheme }) {
 
       <main className="main-content" id="main-content">
         <Suspense fallback={<PageLoader />}>
-          <AnimatePresence mode="popLayout">
+          <AnimatePresence mode="wait">
             <motion.div
               key={location.pathname}
               initial={{ opacity: 0 }}
