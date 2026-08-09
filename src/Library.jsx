@@ -2,10 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import SupabaseAdapter from './agents/adapters/SupabaseAdapter.js';
 import adminStore from './utils/adminStore.js';
+import readingStore from './utils/readingStore.js';
 import { eventBus } from './agents/core/EventBus.js';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { BookOpen, Search, Filter, Download, ExternalLink, X, Clock, User, Music } from 'lucide-react';
+import { BookOpen, Search, Filter, Download, ExternalLink, X, Clock, User, Music, CheckCircle, Check, Sparkles } from 'lucide-react';
 import { MusicSection } from './components/MusicPlayer';
 
 const Library = () => {
@@ -14,12 +15,38 @@ const Library = () => {
     const [selectedCategory, setSelectedCategory] = useState('All');
     const [selectedBook, setSelectedBook] = useState(null);
     const [showSuggestModal, setShowSuggestModal] = useState(false);
+    const [user, setUser] = useState(SupabaseAdapter.cachedUser);
+
+    // Reading progress per book for current user
+    const [readingProgress, setReadingProgress] = useState(readingStore.getAllProgress(user?.id));
+    const [sessionSeconds, setSessionSeconds] = useState(0);
+    const [completedToastBook, setCompletedToastBook] = useState(null);
 
     // Suggestion Form State
     const [suggestTitle, setSuggestTitle] = useState('');
     const [suggestAuthor, setSuggestAuthor] = useState('');
     const [suggestNote, setSuggestNote] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    useEffect(() => {
+        const unsubscribe = SupabaseAdapter.subscribe((u) => {
+            setUser(u);
+        });
+        return unsubscribe;
+    }, []);
+
+    useEffect(() => {
+        setReadingProgress(readingStore.getAllProgress(user?.id));
+    }, [user?.id]);
+
+    useEffect(() => {
+        const unsub = eventBus.on('READING_PROGRESS_UPDATED', ({ userId }) => {
+            if (!userId || userId === (user?.id || 'guest')) {
+                setReadingProgress(readingStore.getAllProgress(user?.id));
+            }
+        });
+        return unsub;
+    }, [user?.id]);
 
     useEffect(() => {
         const unsub = eventBus.on('BOOKS_UPDATED', (updatedBooks) => {
@@ -83,14 +110,19 @@ const Library = () => {
         };
     }, [selectedBook]);
 
-    // Reading Time Stats Tracker
+    // Reading Time Stats Tracker & Session Time counter
     useEffect(() => {
-        if (!selectedBook) return;
+        if (!selectedBook) {
+            setSessionSeconds(0);
+            return;
+        }
 
+        setSessionSeconds(0);
         let secondsElapsed = 0;
         const interval = setInterval(() => {
             if (document.visibilityState === 'visible') {
                 secondsElapsed++;
+                setSessionSeconds(prev => prev + 1);
                 if (secondsElapsed >= 10) {
                     eventBus.emit('STATS_INCREMENT', { reading_time_seconds: 10 });
                     secondsElapsed = 0;
@@ -106,6 +138,45 @@ const Library = () => {
         };
     }, [selectedBook]);
 
+    const flushCurrentReadingTime = () => {
+        if (selectedBook && sessionSeconds > 0) {
+            readingStore.addTime(user?.id, selectedBook.id, sessionSeconds);
+        }
+    };
+
+    const handleCloseReader = () => {
+        flushCurrentReadingTime();
+        setSelectedBook(null);
+    };
+
+    const handleFinishReading = () => {
+        if (!selectedBook) return;
+        flushCurrentReadingTime();
+        readingStore.markCompleted(user?.id, selectedBook.id);
+        const bookTitle = selectedBook.title;
+        setSelectedBook(null);
+        setCompletedToastBook(bookTitle);
+        setTimeout(() => {
+            setCompletedToastBook(null);
+        }, 4000);
+    };
+
+    const formatTimeSpent = (totalSeconds) => {
+        if (!totalSeconds || totalSeconds < 5) return null;
+        if (totalSeconds < 60) return `${totalSeconds}s read`;
+        const mins = Math.floor(totalSeconds / 60);
+        if (mins < 60) return `${mins} min read`;
+        const hrs = Math.floor(mins / 60);
+        const remMins = mins % 60;
+        return remMins > 0 ? `${hrs}h ${remMins}m read` : `${hrs}h read`;
+    };
+
+    const formatSessionTimer = (secs) => {
+        const m = Math.floor(secs / 60);
+        const s = secs % 60;
+        return `${m}:${s < 10 ? '0' : ''}${s}`;
+    };
+
     const filteredBooks = books.filter(book => {
         const matchesCategory = selectedCategory === 'All' || book.category === selectedCategory;
         const matchesSearch = book.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -115,6 +186,37 @@ const Library = () => {
 
     return (
         <div className="container py-5" style={{ minHeight: '80vh' }}>
+            {/* Completion Toast Notification */}
+            <AnimatePresence>
+                {completedToastBook && (
+                    <motion.div
+                        initial={{ opacity: 0, y: -50, scale: 0.9 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: -20, scale: 0.9 }}
+                        className="position-fixed top-0 start-50 translate-middle-x mt-4 p-3 rounded-4 shadow-lg text-white d-flex align-items-center gap-3"
+                        style={{
+                            zIndex: 10500,
+                            background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
+                            maxWidth: '90vw'
+                        }}
+                    >
+                        <div className="bg-white bg-opacity-25 p-2 rounded-circle d-flex align-items-center justify-content-center">
+                            <Sparkles size={24} className="text-white" />
+                        </div>
+                        <div>
+                            <h6 className="fw-bold mb-0">Book Completed! 🎉</h6>
+                            <small className="opacity-90">Great job finishing "{completedToastBook}"</small>
+                        </div>
+                        <button
+                            className="btn btn-sm btn-link text-white opacity-75 ms-2 p-0 text-decoration-none"
+                            onClick={() => setCompletedToastBook(null)}
+                        >
+                            <X size={18} />
+                        </button>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
             <div className="text-center mb-5">
                 <motion.div
                     initial={{ opacity: 0, y: -20 }}
@@ -167,47 +269,71 @@ const Library = () => {
             <div className="row g-4">
                 <AnimatePresence mode="popLayout">
                     {filteredBooks.length > 0 ? (
-                        filteredBooks.map((book, index) => (
-                            <motion.div
-                                layout
-                                key={book.id || index}
-                                initial={{ opacity: 0, scale: 0.9 }}
-                                animate={{ opacity: 1, scale: 1 }}
-                                exit={{ opacity: 0, scale: 0.9 }}
-                                transition={{ duration: 0.3, delay: index * 0.05 }}
-                                className="col-md-6 col-lg-4 col-xl-3"
-                            >
-                                <div className="card h-100 border-0 shadow-hover bg-white rounded-4 overflow-hidden group">
-                                    <div className="position-relative overflow-hidden" style={{ height: '220px' }}>
-                                        <img
-                                            src={book.image}
-                                            className="card-img-top w-100 h-100 object-fit-cover transition-transform duration-500 group-hover-scale-110"
-                                            alt={book.title}
-                                        />
-                                        <div className="position-absolute top-0 end-0 p-3">
-                                            <span className="badge bg-white text-body shadow-sm rounded-pill py-2 px-3">
-                                                {book.category}
-                                            </span>
+                        filteredBooks.map((book, index) => {
+                            const prog = readingProgress[book.id];
+                            const isCompleted = prog?.completed;
+                            const timeSpentStr = formatTimeSpent(prog?.timeSpentSeconds);
+
+                            return (
+                                <motion.div
+                                    layout
+                                    key={book.id || index}
+                                    initial={{ opacity: 0, scale: 0.9 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    exit={{ opacity: 0, scale: 0.9 }}
+                                    transition={{ duration: 0.3, delay: index * 0.05 }}
+                                    className="col-md-6 col-lg-4 col-xl-3"
+                                >
+                                    <div className="card h-100 border-0 shadow-hover bg-white rounded-4 overflow-hidden group position-relative">
+                                        <div className="position-relative overflow-hidden" style={{ height: '220px' }}>
+                                            <img
+                                                src={book.image}
+                                                className="card-img-top w-100 h-100 object-fit-cover transition-transform duration-500 group-hover-scale-110"
+                                                alt={book.title}
+                                            />
+                                            {/* Status badges */}
+                                            <div className="position-absolute top-0 start-0 p-3 d-flex flex-column gap-1 align-items-start">
+                                                {isCompleted && (
+                                                    <span className="badge bg-success text-white shadow-sm rounded-pill py-1 px-3 d-flex align-items-center gap-1 fw-bold">
+                                                        <CheckCircle size={13} /> Completed
+                                                    </span>
+                                                )}
+                                                {timeSpentStr && (
+                                                    <span className="badge bg-dark bg-opacity-75 backdrop-blur text-white shadow-sm rounded-pill py-1 px-3 d-flex align-items-center gap-1 small">
+                                                        <Clock size={12} /> {timeSpentStr}
+                                                    </span>
+                                                )}
+                                            </div>
+
+                                            <div className="position-absolute top-0 end-0 p-3">
+                                                <span className="badge bg-white text-body shadow-sm rounded-pill py-2 px-3">
+                                                    {book.category}
+                                                </span>
+                                            </div>
+
+                                            <div className="position-absolute bottom-0 start-0 w-100 p-3 bg-gradient-to-t from-black/60 to-transparent">
+                                                <button
+                                                    onClick={() => setSelectedBook(book)}
+                                                    className={`btn w-100 rounded-pill d-flex align-items-center justify-content-center gap-2 ${
+                                                        isCompleted ? 'btn-outline-light bg-white text-dark shadow-sm fw-semibold' : 'btn-primary'
+                                                    }`}
+                                                >
+                                                    <BookOpen size={18} />
+                                                    {isCompleted ? 'Read Again' : prog?.timeSpentSeconds ? 'Continue Reading' : 'Start Reading'}
+                                                </button>
+                                            </div>
                                         </div>
-                                        <div className="position-absolute bottom-0 start-0 w-100 p-3 bg-gradient-to-t from-black/60 to-transparent">
-                                            <button
-                                                onClick={() => setSelectedBook(book)}
-                                                className="btn btn-primary w-100 rounded-pill d-flex align-items-center justify-content-center gap-2"
-                                            >
-                                                <BookOpen size={18} /> Start Reading
-                                            </button>
+                                        <div className="card-body p-4">
+                                            <h2 className="card-title fw-bold mb-1 fs-5">{book.title}</h2>
+                                            <p className="small text-primary mb-3">by {book.author}</p>
+                                            <p className="card-text text-muted small mb-0 line-clamp-2">
+                                                {book.description}
+                                            </p>
                                         </div>
                                     </div>
-                                    <div className="card-body p-4">
-                                        <h2 className="card-title fw-bold mb-1 fs-5">{book.title}</h2>
-                                        <p className="small text-primary mb-3">by {book.author}</p>
-                                        <p className="card-text text-muted small mb-0 line-clamp-2">
-                                            {book.description}
-                                        </p>
-                                    </div>
-                                </div>
-                            </motion.div>
-                        ))
+                                </motion.div>
+                            );
+                        })
                     ) : (
                         <div className="col-12 text-center py-5">
                             <div className="bg-light p-5 rounded-4 d-inline-block">
@@ -307,77 +433,119 @@ const Library = () => {
             </div>
 
             {/* Reader Modal */}
-            {/* Reader Modal */}
             {createPortal(
                 <AnimatePresence>
-                    {selectedBook && (
-                        <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            className="position-fixed top-0 start-0 w-100 h-100 d-flex justify-content-center align-items-center p-2 p-md-3"
-                            style={{ zIndex: 9999, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }}
-                            onClick={() => setSelectedBook(null)}
-                        >
+                    {selectedBook && (() => {
+                        const bookProg = readingProgress[selectedBook.id];
+                        const totalSpentSecs = (bookProg?.timeSpentSeconds || 0) + sessionSeconds;
+                        const isCompleted = bookProg?.completed;
+                        const totalTimeStr = formatTimeSpent(totalSpentSecs) || `${totalSpentSecs}s spent`;
+
+                        return (
                             <motion.div
-                                initial={{ scale: 0.9, y: 30 }}
-                                animate={{ scale: 1, y: 0 }}
-                                exit={{ scale: 0.9, y: 30 }}
-                                className="bg-light rounded-4 overflow-hidden shadow-lg w-100"
-                                style={{
-                                    maxWidth: '850px',
-                                    maxHeight: '95vh',
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    position: 'relative'
-                                }}
-                                onClick={(e) => e.stopPropagation()}
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                className="position-fixed top-0 start-0 w-100 h-100 d-flex justify-content-center align-items-center p-2 p-md-3"
+                                style={{ zIndex: 9999, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }}
+                                onClick={handleCloseReader}
                             >
-                                <div className="p-3 p-md-4 border-bottom d-flex justify-content-between align-items-center text-body">
-                                    <div className="d-flex align-items-center gap-2 gap-md-3">
-                                        <div className="bg-primary bg-opacity-10 p-2 rounded-circle text-primary d-none d-sm-block">
-                                            <BookOpen size={24} />
+                                <motion.div
+                                    initial={{ scale: 0.9, y: 30 }}
+                                    animate={{ scale: 1, y: 0 }}
+                                    exit={{ scale: 0.9, y: 30 }}
+                                    className="bg-light rounded-4 overflow-hidden shadow-lg w-100"
+                                    style={{
+                                        maxWidth: '850px',
+                                        maxHeight: '95vh',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        position: 'relative'
+                                    }}
+                                    onClick={(e) => e.stopPropagation()}
+                                >
+                                    <div className="p-3 p-md-4 border-bottom d-flex justify-content-between align-items-center text-body">
+                                        <div className="d-flex align-items-center gap-2 gap-md-3">
+                                            <div className="bg-primary bg-opacity-10 p-2 rounded-circle text-primary d-none d-sm-block">
+                                                <BookOpen size={24} />
+                                            </div>
+                                            <div style={{ maxWidth: 'calc(100vw - 160px)' }}>
+                                                <div className="d-flex align-items-center gap-2 flex-wrap">
+                                                    <h2 className="mb-0 fw-bold text-truncate fs-5">{selectedBook.title}</h2>
+                                                    {isCompleted && (
+                                                        <span className="badge bg-success rounded-pill px-2 py-1 small d-inline-flex align-items-center gap-1 text-white">
+                                                            <CheckCircle size={12} /> Completed
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <small className="text-muted text-truncate d-block">by {selectedBook.author}</small>
+                                            </div>
                                         </div>
-                                        <div style={{ maxWidth: 'calc(100vw - 120px)' }}>
-                                            <h2 className="mb-0 fw-bold text-truncate fs-5">{selectedBook.title}</h2>
-                                            <small className="text-muted text-truncate d-block">by {selectedBook.author}</small>
+                                        <button
+                                            className="btn btn-light rounded-circle p-2"
+                                            onClick={handleCloseReader}
+                                            aria-label="Close reader"
+                                        >
+                                            <X size={20} />
+                                        </button>
+                                    </div>
+
+                                    <div className="overflow-auto flex-grow-1 p-3 p-md-4 p-lg-5">
+                                        <div className="bg-light p-3 p-md-5 rounded-4 shadow-sm mx-auto" style={{ maxWidth: '700px', minHeight: '100%' }}>
+                                            <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 text-muted mb-4 pb-3 border-bottom small">
+                                                <div className="d-flex align-items-center gap-3">
+                                                    <span className="d-flex align-items-center gap-1">
+                                                        <Clock size={14} /> 15 min read
+                                                    </span>
+                                                    <span className="d-flex align-items-center gap-1">
+                                                        <User size={14} /> {selectedBook.category}
+                                                    </span>
+                                                </div>
+
+                                                {/* Live reading session badge */}
+                                                <div className="d-flex align-items-center gap-2 ms-auto">
+                                                    <span className="badge bg-primary bg-opacity-10 text-primary px-3 py-1.5 rounded-pill d-flex align-items-center gap-1.5">
+                                                        <span className="spinner-grow spinner-grow-sm text-primary me-1" style={{ width: '8px', height: '8px' }} role="status"></span>
+                                                        <span>Session: {formatSessionTimer(sessionSeconds)}</span>
+                                                    </span>
+                                                    <span className="badge bg-secondary bg-opacity-10 text-secondary px-3 py-1.5 rounded-pill" title="Total accumulated reading time on this book">
+                                                        Total: {totalTimeStr}
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                            <div
+                                                className="content-body text-body"
+                                                dangerouslySetInnerHTML={{ __html: selectedBook.content }}
+                                                style={{ lineHeight: '1.8', fontSize: '1.1rem' }}
+                                            />
                                         </div>
                                     </div>
-                                    <button
-                                        className="btn btn-light rounded-circle p-2"
-                                        onClick={() => setSelectedBook(null)}
-                                        aria-label="Close reader"
-                                    >
-                                        <X size={20} />
-                                    </button>
-                                </div>
 
-                                <div className="overflow-auto flex-grow-1 p-3 p-md-4 p-lg-5">
-                                    <div className="bg-light p-3 p-md-5 rounded-4 shadow-sm mx-auto" style={{ maxWidth: '700px', minHeight: '100%' }}>
-                                        <div className="d-flex align-items-center gap-3 text-muted mb-4 small">
-                                            <span className="d-flex align-items-center gap-1"><Clock size={14} /> 15 min read</span>
-                                            <span className="d-flex align-items-center gap-1"><User size={14} /> {selectedBook.category}</span>
+                                    <div className="p-3 border-top bg-light d-flex justify-content-between align-items-center gap-2">
+                                        <button className="btn btn-outline-secondary btn-sm rounded-pill px-3 d-none d-sm-block text-body border-0 bg-transparent" onClick={() => window.dispatchEvent(new CustomEvent('music-toggle'))}>
+                                            <Music size={16} className="me-2" /> Soundscapes
+                                        </button>
+
+                                        <div className="d-flex align-items-center gap-2 ms-auto">
+                                            <button className="btn btn-outline-secondary btn-sm rounded-pill px-3" onClick={handleCloseReader}>
+                                                Close
+                                            </button>
+                                            <button 
+                                                className={`btn btn-sm rounded-pill px-4 d-flex align-items-center gap-2 ${
+                                                    isCompleted ? 'btn-success' : 'btn-primary shadow-sm'
+                                                }`} 
+                                                onClick={handleFinishReading}
+                                            >
+                                                <CheckCircle size={16} />
+                                                {isCompleted ? 'Marked Completed' : 'Finish Reading'}
+                                            </button>
                                         </div>
-                                        <div
-                                            className="content-body text-body"
-                                            dangerouslySetInnerHTML={{ __html: selectedBook.content }}
-                                            style={{ lineHeight: '1.8', fontSize: '1.1rem' }}
-                                        />
                                     </div>
-                                </div>
-
-                                <div className="p-3 border-top bg-light d-flex justify-content-between align-items-center">
-                                    <button className="btn btn-outline-secondary btn-sm rounded-pill px-3 d-none d-sm-block text-body border-0 bg-transparent" onClick={() => window.dispatchEvent(new CustomEvent('music-toggle'))}>
-                                        <Music size={16} className="me-2" /> Soundscapes
-                                    </button>
-
-                                    <button className="btn btn-primary btn-sm rounded-pill px-4 ms-auto" onClick={() => setSelectedBook(null)}>
-                                        Finish Reading
-                                    </button>
-                                </div>
+                                </motion.div>
                             </motion.div>
-                        </motion.div>
-                    )}
+                        );
+                    })()}
                 </AnimatePresence>,
                 document.body
             )}
